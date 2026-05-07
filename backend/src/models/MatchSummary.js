@@ -54,10 +54,12 @@ const matchSummarySchema = new mongoose.Schema(
     innings: {
       first: inningsSummarySchema,
       second: inningsSummarySchema,
+      superOverFirst: inningsSummarySchema,
+      superOverSecond: inningsSummarySchema,
     },
     currentInning: {
       type: Number,
-      enum: [1, 2],
+      enum: [1, 2, 3, 4],
       default: 1,
     },
     currentBatsmen: {
@@ -93,6 +95,11 @@ const matchSummarySchema = new mongoose.Schema(
       default: null,
     },
     requiredRunRate: {
+      type: Number,
+      default: null,
+    },
+    // Super over overs count (set when match is tied)
+    superOverOvers: {
       type: Number,
       default: null,
     },

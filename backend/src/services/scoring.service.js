@@ -168,7 +168,13 @@ const pauseMatch = async (matchId, reason, performedBy) => {
 /**
  * Helper: Get current inning key from summary.
  */
-const getInningKey = (inningNumber) => (inningNumber === 1 ? 'first' : 'second');
+const getInningKey = (inningNumber) => {
+  if (inningNumber === 1) return 'first';
+  if (inningNumber === 2) return 'second';
+  if (inningNumber === 3) return 'superOverFirst';
+  if (inningNumber === 4) return 'superOverSecond';
+  return 'first'; // Fallback
+};
 
 /**
  * Add a scoring event (runs scored off the bat on a legal delivery).
@@ -470,6 +476,82 @@ const endMatch = async (matchId, resultData, performedBy) => {
 };
 
 /**
+ * Save super over configuration when a match ends in a tie.
+ * Sets match.superOver = true, summary.superOverOvers, resets innings to live for super over.
+ */
+const saveSuperOver = async (matchId, { overs }, performedBy) => {
+  const match = await Match.findById(matchId);
+  if (!match) throw ApiError.notFound('Match not found');
+  if (match.status !== 'live') throw ApiError.conflict('Match is not live');
+
+  const summary = await MatchSummary.findOne({ matchId });
+  if (!summary) throw ApiError.notFound('Match summary not found');
+  if (summary.currentInning !== 2) throw ApiError.conflict('Super over can only be initiated after 2nd innings');
+
+  const superOverOvers = parseInt(overs, 10);
+  if (!superOverOvers || superOverOvers < 1) throw ApiError.badRequest('Super over overs must be at least 1');
+
+  // Mark match as super over
+  match.superOver = true;
+  // Reset overs per inning for super over
+  match.oversPerInning = superOverOvers;
+  await match.save();
+
+  // Store the super over overs count in summary
+  summary.superOverOvers = superOverOvers;
+  // Reset to 3rd innings (Super Over 1st innings) so scoring can restart for super over (teams swap)
+  summary.currentInning = 3;
+  // Initialize innings data for super over (keep original data safe in first/second innings slot)
+  const origBatTeam = summary.innings.second.battingTeamId;
+  const origBowlTeam = summary.innings.second.bowlingTeamId;
+  summary.innings.superOverFirst = {
+    battingTeamId: origBatTeam,
+    bowlingTeamId: origBowlTeam,
+    score: 0,
+    wickets: 0,
+    overs: 0,
+    balls: 0,
+    extras: { wides: 0, noBalls: 0, byes: 0, legByes: 0, total: 0 },
+    runRate: 0,
+    battingOrder: [],
+    bowlingFigures: [],
+  };
+  summary.innings.superOverSecond = {
+    battingTeamId: origBowlTeam,
+    bowlingTeamId: origBatTeam,
+    score: 0,
+    wickets: 0,
+    overs: 0,
+    balls: 0,
+    extras: { wides: 0, noBalls: 0, byes: 0, legByes: 0, total: 0 },
+    runRate: 0,
+    battingOrder: [],
+    bowlingFigures: [],
+  };
+  summary.target = null;
+  summary.requiredRunRate = null;
+  summary.currentBatsmen = { striker: {}, nonStriker: {} };
+  summary.currentBowler = {};
+  summary.status = 'live';
+  await summary.save();
+
+  // Update match batting/bowling team to super over first batting team
+  match.battingTeam = origBatTeam;
+  match.bowlingTeam = origBowlTeam;
+  match.currentInning = 3;
+  await match.save();
+
+  await AuditLog.create({
+    matchId,
+    action: 'super_over_started',
+    performedBy,
+    description: `Super over started. ${superOverOvers} over(s) per side.`,
+  });
+
+  return { match, summary };
+};
+
+/**
  * Undo the last ball event.
  * Deletes last event and fully recomputes summary from remaining events.
  */
@@ -514,18 +596,26 @@ const switchInnings = async (matchId, performedBy) => {
 
   const summary = await MatchSummary.findOne({ matchId });
   if (!summary) throw ApiError.notFound('Match summary not found');
-  if (summary.currentInning === 2) {
+  if (summary.currentInning === 2 && !match.superOver) {
     throw ApiError.conflict('Already in second innings');
   }
+  if (summary.currentInning === 4) {
+    throw ApiError.conflict('Already in second innings of super over');
+  }
 
-  summary.currentInning = 2;
+  const nextInning = summary.currentInning === 1 ? 2 : 4;
+
+  summary.currentInning = nextInning;
   summary.status = 'live';
-  summary.target = summary.innings.first.score + 1;
+  summary.target = summary.currentInning === 2 
+    ? summary.innings.first.score + 1
+    : summary.innings.superOverFirst.score + 1;
+    
   summary.currentBatsmen = { striker: {}, nonStriker: {} };
   summary.currentBowler = {};
   await summary.save();
 
-  match.currentInning = 2;
+  match.currentInning = nextInning;
   // Swap batting/bowling teams
   const temp = match.battingTeam;
   match.battingTeam = match.bowlingTeam;
@@ -710,8 +800,8 @@ async function recomputeSummary(matchId, match) {
 
   // Reset innings
   summary.innings.first = {
-    battingTeamId: match.battingTeam,
-    bowlingTeamId: match.bowlingTeam,
+    battingTeamId: match.superOver ? summary.innings.first.battingTeamId : match.battingTeam,
+    bowlingTeamId: match.superOver ? summary.innings.first.bowlingTeamId : match.bowlingTeam,
     score: 0,
     wickets: 0,
     overs: 0,
@@ -722,8 +812,8 @@ async function recomputeSummary(matchId, match) {
     bowlingFigures: [],
   };
   summary.innings.second = {
-    battingTeamId: match.bowlingTeam,
-    bowlingTeamId: match.battingTeam,
+    battingTeamId: match.superOver ? summary.innings.second.battingTeamId : match.bowlingTeam,
+    bowlingTeamId: match.superOver ? summary.innings.second.bowlingTeamId : match.battingTeam,
     score: 0,
     wickets: 0,
     overs: 0,
@@ -733,6 +823,32 @@ async function recomputeSummary(matchId, match) {
     battingOrder: [],
     bowlingFigures: [],
   };
+  if (match.superOver) {
+    summary.innings.superOverFirst = {
+      battingTeamId: summary.innings.superOverFirst.battingTeamId,
+      bowlingTeamId: summary.innings.superOverFirst.bowlingTeamId,
+      score: 0,
+      wickets: 0,
+      overs: 0,
+      balls: 0,
+      extras: { wides: 0, noBalls: 0, byes: 0, legByes: 0, total: 0 },
+      runRate: 0,
+      battingOrder: [],
+      bowlingFigures: [],
+    };
+    summary.innings.superOverSecond = {
+      battingTeamId: summary.innings.superOverSecond.battingTeamId,
+      bowlingTeamId: summary.innings.superOverSecond.bowlingTeamId,
+      score: 0,
+      wickets: 0,
+      overs: 0,
+      balls: 0,
+      extras: { wides: 0, noBalls: 0, byes: 0, legByes: 0, total: 0 },
+      runRate: 0,
+      battingOrder: [],
+      bowlingFigures: [],
+    };
+  }
 
   let currentInning = 1;
 
@@ -986,6 +1102,7 @@ module.exports = {
   addWicket,
   addExtra,
   endMatch,
+  saveSuperOver,
   undoLastEvent,
   switchInnings,
   setActivePlayers,

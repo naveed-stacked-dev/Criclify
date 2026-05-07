@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PlayCircle, RotateCcw, AlertTriangle, UserMinus, SkipForward, Ban, Loader2, Clock, PauseCircle, Pencil } from "lucide-react";
+import { PlayCircle, RotateCcw, AlertTriangle, UserMinus, SkipForward, Ban, Loader2, Clock, PauseCircle, Pencil, Trophy } from "lucide-react";
 
 function CountdownTimer({ startTime, onTimeUp }) {
   const { themeColor } = useAppContext();
@@ -80,6 +80,9 @@ export default function LiveScoringPage() {
   const [showPlayers, setShowPlayers] = useState(false);
   const [showPause, setShowPause] = useState(false);
   const [showBowlerChange, setShowBowlerChange] = useState(false);
+  const [showSwitchConfirm, setShowSwitchConfirm] = useState(false);
+  const [showWinnerPopup, setShowWinnerPopup] = useState(false);
+  const [showSuperOver, setShowSuperOver] = useState(false);
 
   // Forms
   const [tossWinner, setTossWinner] = useState("");
@@ -91,6 +94,8 @@ export default function LiveScoringPage() {
   const [pauseReason, setPauseReason] = useState("");
   const [newBowler, setNewBowler] = useState("");
   const [prevBalls, setPrevBalls] = useState(null);
+  const [superOverOvers, setSuperOverOvers] = useState(1);
+  const [matchResult, setMatchResult] = useState(null); // { winnerTeam, loserTeam, marginType, marginValue, summary }
 
   // Data fetching state for player selection
   const [battingTeamPlayers, setBattingTeamPlayers] = useState([]);
@@ -143,7 +148,14 @@ export default function LiveScoringPage() {
   });
   const scorecard = scorecardRaw?.data?.data || scorecardRaw?.data;
 
-  const currentInningKey = scorecard?.currentInning === 1 ? 'first' : 'second';
+  const getInningsKey = (inningNum) => {
+    if (inningNum === 1) return 'first';
+    if (inningNum === 2) return 'second';
+    if (inningNum === 3) return 'superOverFirst';
+    if (inningNum === 4) return 'superOverSecond';
+    return 'first';
+  };
+  const currentInningKey = getInningsKey(scorecard?.currentInning);
   const currentInnings = scorecard?.innings?.[currentInningKey] || {};
 
   // Detect over completion and prompt bowler change
@@ -262,6 +274,7 @@ export default function LiveScoringPage() {
     mutationFn: () => scoringService.switchInnings(matchId),
     onSuccess: () => {
       toast.success("Innings Switched");
+      setShowSwitchConfirm(false);
       setShowPlayers(true);
       queryClient.invalidateQueries({ queryKey: ["scorecard", matchId] });
       queryClient.invalidateQueries({ queryKey: ["match", matchId] });
@@ -269,12 +282,29 @@ export default function LiveScoringPage() {
   });
 
   const endMatchMut = useMutation({
-    mutationFn: () => scoringService.endMatch(matchId, {}),
+    mutationFn: (data) => scoringService.endMatch(matchId, data || {}),
     onSuccess: () => {
       toast.success("Match Ended");
       setShowEnd(false);
+      setShowWinnerPopup(false);
       queryClient.invalidateQueries({ queryKey: ["match", matchId] });
+      queryClient.invalidateQueries({ queryKey: ["scorecard", matchId] });
     },
+    onError: (err) => toast.error(err?.response?.data?.message || "Failed to end match"),
+  });
+
+  const saveSuperOverMut = useMutation({
+    mutationFn: (data) => scoringService.saveSuperOver(matchId, data),
+    onSuccess: () => {
+      toast.success("Super Over started! Set players to begin scoring.");
+      setShowSuperOver(false);
+      setShowWinnerPopup(false);
+      setMatchResult(null);
+      queryClient.invalidateQueries({ queryKey: ["scorecard", matchId] });
+      queryClient.invalidateQueries({ queryKey: ["match", matchId] });
+      setTimeout(() => setShowPlayers(true), 500);
+    },
+    onError: (err) => toast.error(err?.response?.data?.message || "Failed to start super over"),
   });
 
   const [isTimePassed, setIsTimePassed] = useState(false);
@@ -284,6 +314,113 @@ export default function LiveScoringPage() {
       setIsTimePassed(new Date(match.startTime) <= new Date());
     }
   }, [match?.startTime]);
+
+  // ─── Auto-Result Detection (2nd Innings or 4th Innings) ───
+  useEffect(() => {
+    if (!scorecard || !match || match.status !== 'live') return;
+    const isSuperOverChase = scorecard.currentInning === 4;
+    if (scorecard.currentInning !== 2 && !isSuperOverChase) return;
+    if (showWinnerPopup || showSuperOver) return; // Already showing a popup
+
+    const chaseInnings = isSuperOverChase ? (scorecard.innings?.superOverSecond || {}) : (scorecard.innings?.second || {});
+    const firstInnings = isSuperOverChase ? (scorecard.innings?.superOverFirst || {}) : (scorecard.innings?.first || {});
+    const target = firstInnings.score + 1;
+    const currentScore = chaseInnings.score || 0;
+    const currentWickets = chaseInnings.wickets || 0;
+    const currentBalls = chaseInnings.balls || 0;
+    const totalBalls = isSuperOverChase ? (match.oversPerInning || 1) * 6 : (match.oversPerInning || 20) * 6;
+    const maxWickets = isSuperOverChase ? 2 : 10; // usually 2 wickets for super over but we can just use 10 if standard rules are 10, wait, let's keep 10 to be safe unless clubarenax uses 2. standard t20 super over has 2 wickets. Actually, let's just use 10 for safety since we haven't added specific super over wicket limits elsewhere.
+    const effectiveMaxWickets = isSuperOverChase ? 2 : 10;
+
+    // Resolve team names
+    const batTeam = chaseInnings.battingTeamId;
+    const bowlTeam = chaseInnings.bowlingTeamId;
+    const batTeamName = batTeam?.name || 'Batting Team';
+    const bowlTeamName = bowlTeam?.name || 'Bowling Team';
+    const batTeamIdStr = batTeam?._id || batTeam;
+    const bowlTeamIdStr = bowlTeam?._id || bowlTeam;
+
+    // Case 1: Target chased — batting team wins
+    if (currentScore >= target) {
+      const wicketsRemaining = effectiveMaxWickets - currentWickets;
+      setMatchResult({
+        winner: batTeamIdStr,
+        winnerName: batTeamName,
+        loserName: bowlTeamName,
+        summary: `${batTeamName} won by ${wicketsRemaining} wicket${wicketsRemaining !== 1 ? 's' : ''}${isSuperOverChase ? ' (Super Over)' : ''}`,
+        margin: `${wicketsRemaining} wicket${wicketsRemaining !== 1 ? 's' : ''}`,
+      });
+      setShowWinnerPopup(true);
+      return;
+    }
+
+    // Innings over conditions: all out OR overs exhausted
+    const inningsOver = currentWickets >= effectiveMaxWickets || currentBalls >= totalBalls;
+    if (!inningsOver) return;
+
+    // Case 2: Scores tied — it's a draw, super over needed (if not already super over)
+    if (currentScore === target - 1) {
+      if (isSuperOverChase) {
+        // Super over tied! We can declare draw or another super over, but let's just say Tied
+        setMatchResult({
+          winner: null,
+          winnerName: null,
+          loserName: null,
+          summary: `Super Over Tied! ${batTeamName}: ${currentScore} — ${bowlTeamName}: ${firstInnings.score}`,
+          margin: 'Tied',
+          isTie: false, // Don't trigger another super over automatically
+          batTeamName,
+          bowlTeamName,
+        });
+      } else {
+        setMatchResult({
+          winner: null,
+          winnerName: null,
+          loserName: null,
+          summary: `Match Tied! ${batTeamName}: ${currentScore} — ${bowlTeamName}: ${firstInnings.score}`,
+          margin: 'Tied',
+          isTie: true,
+          batTeamName,
+          bowlTeamName,
+        });
+      }
+      setShowWinnerPopup(true);
+      return;
+    }
+
+    // Case 3: Batting team failed to chase — bowling team wins
+    if (currentScore < target - 1) {
+      const runDiff = (target - 1) - currentScore;
+      setMatchResult({
+        winner: bowlTeamIdStr,
+        winnerName: bowlTeamName,
+        loserName: batTeamName,
+        summary: `${bowlTeamName} won by ${runDiff} run${runDiff !== 1 ? 's' : ''}${isSuperOverChase ? ' (Super Over)' : ''}`,
+        margin: `${runDiff} run${runDiff !== 1 ? 's' : ''}`,
+      });
+      setShowWinnerPopup(true);
+      return;
+    }
+  }, [scorecard, match, showWinnerPopup, showSuperOver]);
+
+  // ─── Switch Innings Handler ───
+  const handleSwitchInnings = () => {
+    if (!scorecard || !match) return;
+    const isSuperOver = match.superOver;
+    const inn = isSuperOver ? (scorecard.innings?.superOverFirst || {}) : (scorecard.innings?.first || {});
+    const totalBalls = (match.oversPerInning || 20) * 6;
+    const maxWickets = isSuperOver ? 2 : 10;
+    const ballsBowled = inn.balls || 0;
+    const wicketsFallen = inn.wickets || 0;
+
+    // If overs done or all out, switch directly
+    if (ballsBowled >= totalBalls || wicketsFallen >= maxWickets) {
+      switchInningsMut.mutate();
+    } else {
+      // Show confirmation
+      setShowSwitchConfirm(true);
+    }
+  };
 
   if (!matchId) return <div className="p-8 text-center">No match selected</div>;
   if (matchLoading) return <div className="p-8 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
@@ -484,7 +621,10 @@ export default function LiveScoringPage() {
             <div className="text-center md:text-left flex-1">
               <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
                 <Badge className="animate-pulse shadow-sm" style={{ backgroundColor: themeColor, color: '#fff' }}>LIVE</Badge>
-                <Badge variant="outline" className="font-semibold" style={{ borderColor: `${themeColor}40`, color: themeColor }}>{scorecard?.currentInning === 1 ? '1st' : '2nd'} Innings</Badge>
+                <Badge variant="outline" className="font-semibold" style={{ borderColor: `${themeColor}40`, color: themeColor }}>
+                  {scorecard?.currentInning === 1 ? '1st' : scorecard?.currentInning === 2 ? '2nd' : scorecard?.currentInning === 3 ? '1st (SO)' : '2nd (SO)'} Innings
+                </Badge>
+                {match?.superOver && <Badge className="shadow-sm font-bold" style={{ backgroundColor: '#f59e0b', color: '#fff' }}>SUPER OVER</Badge>}
               </div>
               <h2 className="text-3xl font-bold tracking-tight">{battingTeam?.name || 'Batting Team'}</h2>
               <div className="text-6xl font-black tracking-tighter mt-2 text-foreground">
@@ -499,7 +639,7 @@ export default function LiveScoringPage() {
                   CRR: {currentInnings.runRate?.toFixed(2) || "0.00"}
                 </p>
               </div>
-              {scorecard?.currentInning === 2 && scorecard?.target && (
+              {(scorecard?.currentInning === 2 || scorecard?.currentInning === 4) && scorecard?.target && (
                 <div className="mt-2 text-sm font-semibold text-emerald-500 bg-emerald-500/10 inline-block px-3 py-1 rounded-md">
                   Target: {scorecard.target} • Need {scorecard.target - (currentInnings.score || 0)} from {((match.oversPerInning || 20) * 6) - (currentInnings.balls || 0)} balls
                   {scorecard.requiredRunRate > 0 && ` • RRR: ${scorecard.requiredRunRate.toFixed(2)}`}
@@ -514,8 +654,8 @@ export default function LiveScoringPage() {
                 <Button variant="outline" size="sm" onClick={() => setShowPlayers(true)} className="bg-card">
                   <UserMinus className="w-4 h-4 mr-2" /> Players
                 </Button>
-                {scorecard?.currentInning === 1 && (
-                  <Button variant="outline" size="sm" onClick={() => switchInningsMut.mutate()} disabled={switchInningsMut.isPending} className="bg-card">
+                {(scorecard?.currentInning === 1 || scorecard?.currentInning === 3) && (
+                  <Button variant="outline" size="sm" onClick={handleSwitchInnings} disabled={switchInningsMut.isPending} className="bg-card">
                     <SkipForward className="w-4 h-4 mr-2" /> Switch Innings
                   </Button>
                 )}
@@ -757,12 +897,12 @@ export default function LiveScoringPage() {
         </Card>
       </div>
 
-      {/* Previous Innings Summary (if 2nd innings) */}
-      {scorecard?.currentInning === 2 && otherInnings && (
+      {/* Previous Innings Summary */}
+      {(scorecard?.currentInning === 2 || scorecard?.currentInning === 4) && otherInnings && (
         <Card className="border-border/50 shadow-sm opacity-80">
           <CardHeader className="bg-secondary/10 border-b border-border/50 pb-3">
             <CardTitle className="text-base flex items-center justify-between">
-              <span>1st Innings — {otherInnings.battingTeamId?.name || 'Team'}</span>
+              <span>{scorecard?.currentInning === 2 ? '1st' : 'Super Over 1st'} Innings — {otherInnings.battingTeamId?.name || 'Team'}</span>
               <Badge variant="secondary" className="text-xs">{otherInnings.score || 0}/{otherInnings.wickets || 0} ({otherInnings.overs?.toFixed?.(1) || '0.0'} ov)</Badge>
             </CardTitle>
           </CardHeader>
@@ -936,6 +1076,159 @@ export default function LiveScoringPage() {
             <Button variant="outline" onClick={() => setShowEnd(false)}>Cancel</Button>
             <Button variant="destructive" onClick={() => endMatchMut.mutate()} disabled={endMatchMut.isPending}>
               {endMatchMut.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} End Match
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Switch Innings Confirmation */}
+      <Dialog open={showSwitchConfirm} onOpenChange={setShowSwitchConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-500">
+              <AlertTriangle className="w-5 h-5" /> Switch Innings Early?
+            </DialogTitle>
+            <DialogDescription>
+              The first innings is not yet complete. Are you sure you want to switch?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-3">
+            <div className="flex justify-between items-center p-3 rounded-lg border bg-secondary/30">
+              <span className="text-sm font-medium text-muted-foreground">Overs Remaining</span>
+              <span className="font-bold text-lg">
+                {(() => {
+                  const inn = match?.superOver ? (scorecard?.innings?.superOverFirst || {}) : (scorecard?.innings?.first || {});
+                  const total = (match?.oversPerInning || 20) * 6;
+                  const remaining = total - (inn.balls || 0);
+                  const oversLeft = Math.floor(remaining / 6);
+                  const ballsLeft = remaining % 6;
+                  return `${oversLeft}.${ballsLeft}`;
+                })()}
+              </span>
+            </div>
+            <div className="flex justify-between items-center p-3 rounded-lg border bg-secondary/30">
+              <span className="text-sm font-medium text-muted-foreground">Wickets Remaining</span>
+              <span className="font-bold text-lg">
+                {(match?.superOver ? 2 : 10) - ((match?.superOver ? scorecard?.innings?.superOverFirst?.wickets : scorecard?.innings?.first?.wickets) || 0)}
+              </span>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSwitchConfirm(false)}>Cancel</Button>
+            <Button
+              onClick={() => switchInningsMut.mutate()}
+              disabled={switchInningsMut.isPending}
+              className="text-white shadow-md"
+              style={{ backgroundColor: themeColor }}
+            >
+              {switchInningsMut.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Force Switch
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Winner Declaration Popup */}
+      <Dialog open={showWinnerPopup} onOpenChange={(open) => { if (!open) { setShowWinnerPopup(false); setMatchResult(null); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-2xl">
+              <Trophy className="w-7 h-7" style={{ color: matchResult?.isTie ? '#f59e0b' : '#10b981' }} />
+              {matchResult?.isTie ? 'Match Tied!' : 'Match Result'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            {matchResult?.isTie ? (
+              <div className="space-y-4">
+                <div className="text-center p-4 rounded-xl border-2 border-dashed border-amber-400/50 bg-amber-50/30 dark:bg-amber-950/20">
+                  <p className="text-lg font-bold text-amber-600 dark:text-amber-400 mb-1">Scores are level!</p>
+                  <p className="text-sm text-muted-foreground">{matchResult.summary}</p>
+                </div>
+                <p className="text-sm text-center text-muted-foreground">
+                  A Super Over is needed to break the tie. Click below to configure.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div
+                  className="text-center p-6 rounded-xl border shadow-sm"
+                  style={{ backgroundColor: `${themeColor}10`, borderColor: `${themeColor}30` }}
+                >
+                  <p className="text-sm uppercase tracking-widest text-muted-foreground mb-2">Winner</p>
+                  <p className="text-2xl font-black" style={{ color: themeColor }}>{matchResult?.winnerName}</p>
+                  <p className="text-sm font-medium text-muted-foreground mt-1">defeated {matchResult?.loserName}</p>
+                  <p className="text-base font-semibold mt-2">{matchResult?.margin}</p>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => { setShowWinnerPopup(false); setMatchResult(null); }}>
+              Dismiss
+            </Button>
+            {matchResult?.isTie ? (
+              <Button
+                onClick={() => setShowSuperOver(true)}
+                className="text-white shadow-md"
+                style={{ backgroundColor: '#f59e0b' }}
+              >
+                <SkipForward className="w-4 h-4 mr-2" /> Start Super Over
+              </Button>
+            ) : (
+              <Button
+                onClick={() => endMatchMut.mutate({
+                  winner: matchResult?.winner,
+                  margin: matchResult?.margin || '',
+                  summary: matchResult?.summary || '',
+                })}
+                disabled={endMatchMut.isPending}
+                className="text-white shadow-md"
+                style={{ backgroundColor: '#10b981' }}
+              >
+                {endMatchMut.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                <Trophy className="w-4 h-4 mr-2" /> Confirm & End Match
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Super Over Configuration Dialog */}
+      <Dialog open={showSuperOver} onOpenChange={setShowSuperOver}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-500">
+              <SkipForward className="w-5 h-5" /> Super Over Configuration
+            </DialogTitle>
+            <DialogDescription>
+              Set the number of overs per side for the Super Over tiebreaker.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="space-y-2">
+              <Label>Overs per side</Label>
+              <Input
+                type="number"
+                min={1}
+                max={5}
+                value={superOverOvers}
+                onChange={(e) => setSuperOverOvers(parseInt(e.target.value, 10) || 1)}
+                className="text-center text-2xl font-bold h-14"
+              />
+              <p className="text-xs text-muted-foreground text-center">
+                Each team will bat for {superOverOvers} over{superOverOvers !== 1 ? 's' : ''}
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSuperOver(false)}>Cancel</Button>
+            <Button
+              onClick={() => saveSuperOverMut.mutate({ overs: superOverOvers })}
+              disabled={saveSuperOverMut.isPending}
+              className="text-white shadow-md"
+              style={{ backgroundColor: '#f59e0b' }}
+            >
+              {saveSuperOverMut.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Begin Super Over
             </Button>
           </DialogFooter>
         </DialogContent>

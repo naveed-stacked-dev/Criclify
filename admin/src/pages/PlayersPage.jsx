@@ -22,6 +22,13 @@ const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { st
 const item = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } };
 
 const PLAYER_ROLES = ["batsman", "bowler", "allrounder", "wicketkeeper"];
+const BATTING_STYLES = ["right-hand", "left-hand"];
+const BOWLING_STYLES = [
+  "right-arm fast", "right-arm medium-fast", "right-arm medium",
+  "right-arm off-spin", "right-arm leg-spin",
+  "left-arm fast", "left-arm medium-fast", "left-arm medium",
+  "left-arm orthodox", "left-arm chinaman",
+];
 
 export default function PlayersPage() {
   const { user, clubId: contextClubId, themeColor } = useAppContext();
@@ -43,7 +50,7 @@ export default function PlayersPage() {
   const [stats, setStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(false);
 
-  const [form, setForm] = useState({ name: "", role: "batsman", jerseyNumber: "", phone: "", photoUrl: "", team: "" });
+  const [form, setForm] = useState({ name: "", role: "batsman", jerseyNumber: "", phone: "", photoUrl: "", team: "", battingStyle: "right-hand", bowlingStyle: "" });
 
   useEffect(() => {
     const fetch = async () => {
@@ -67,7 +74,7 @@ export default function PlayersPage() {
     setLoading(true);
     try {
       const [pRes, tRes] = await Promise.allSettled([
-        playerService.getByClub(selectedClub),
+        playerService.getByClub(selectedClub, { limit: 1000 }),
         teamService.getByClub(selectedClub),
       ]);
       const pData = pRes.status === "fulfilled" ? (pRes.value.data?.data || pRes.value.data?.players || pRes.value.data || []) : [];
@@ -91,6 +98,8 @@ export default function PlayersPage() {
       if (form.team && form.team !== "none") formData.append("teamId", form.team);
       if (form.jerseyNumber) formData.append("jerseyNumber", form.jerseyNumber);
       if (form.phone) formData.append("phone", form.phone);
+      if (form.battingStyle) formData.append("battingStyle", form.battingStyle);
+      if (form.bowlingStyle) formData.append("bowlingStyle", form.bowlingStyle);
       if (form.photoUrl instanceof File) {
         formData.append("avatar", form.photoUrl);
       } else if (form.photoUrl) {
@@ -100,7 +109,7 @@ export default function PlayersPage() {
       await playerService.create(formData);
       toast.success("Player created");
       setShowCreate(false);
-      setForm({ name: "", role: "batsman", jerseyNumber: "", phone: "", photoUrl: "", team: "" });
+      setForm({ name: "", role: "batsman", jerseyNumber: "", phone: "", photoUrl: "", team: "", battingStyle: "right-hand", bowlingStyle: "" });
       fetchPlayers();
     } catch { /* interceptor */ } finally { setSubmitting(false); }
   };
@@ -120,7 +129,8 @@ export default function PlayersPage() {
       }
       if (form.jerseyNumber !== undefined) formData.append("jerseyNumber", form.jerseyNumber);
       if (form.phone !== undefined) formData.append("phone", form.phone);
-      
+      if (form.battingStyle) formData.append("battingStyle", form.battingStyle);
+      formData.append("bowlingStyle", form.bowlingStyle || "");
       if (form.photoUrl instanceof File) {
         formData.append("avatar", form.photoUrl);
       } else if (form.photoUrl) {
@@ -157,7 +167,16 @@ export default function PlayersPage() {
 
   const openEdit = (p) => {
     setSelected(p);
-    setForm({ name: p.name || "", role: p.role || "batsman", jerseyNumber: p.jerseyNumber || "", phone: p.phone || "", photoUrl: p.photoUrl || "", team: p.teamId?._id || p.teamId || "none" });
+    setForm({
+      name: p.name || "",
+      role: p.role || "batsman",
+      jerseyNumber: p.jerseyNumber || "",
+      phone: p.phone || "",
+      photoUrl: p.avatar || p.photoUrl || "",
+      team: p.teamId?._id || p.teamId || "none",
+      battingStyle: p.battingStyle || "right-hand",
+      bowlingStyle: p.bowlingStyle || "",
+    });
     setShowEdit(true);
   };
 
@@ -292,6 +311,31 @@ export default function PlayersPage() {
               <div className="space-y-2"><Label>Jersey #</Label><Input placeholder="10" value={form.jerseyNumber} onChange={(e) => setForm({ ...form, jerseyNumber: e.target.value })} /></div>
               <div className="space-y-2"><Label>Phone</Label><Input placeholder="+91..." value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              {(form.role === "batsman" || form.role === "allrounder" || form.role === "wicketkeeper") && (
+                <div className="space-y-2">
+                  <Label>Batting Style</Label>
+                  <Select value={form.battingStyle} onValueChange={(v) => setForm({ ...form, battingStyle: v })}>
+                    <SelectTrigger><SelectValue placeholder="Select batting style" /></SelectTrigger>
+                    <SelectContent>
+                      {BATTING_STYLES.map((s) => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {(form.role === "bowler" || form.role === "allrounder") && (
+                <div className="space-y-2">
+                  <Label>Bowling Style</Label>
+                  <Select value={form.bowlingStyle || "none"} onValueChange={(v) => setForm({ ...form, bowlingStyle: v === "none" ? "" : v })}>
+                    <SelectTrigger><SelectValue placeholder="Select bowling style" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">N/A</SelectItem>
+                      {BOWLING_STYLES.map((s) => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
             <div className="space-y-2">
               <Label>Team (optional)</Label>
               <Select value={form.team || "none"} onValueChange={(v) => setForm({ ...form, team: v })}>
@@ -331,6 +375,31 @@ export default function PlayersPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2"><Label>Jersey #</Label><Input value={form.jerseyNumber} onChange={(e) => setForm({ ...form, jerseyNumber: e.target.value })} /></div>
               <div className="space-y-2"><Label>Phone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              {(form.role === "batsman" || form.role === "allrounder" || form.role === "wicketkeeper") && (
+                <div className="space-y-2">
+                  <Label>Batting Style</Label>
+                  <Select value={form.battingStyle} onValueChange={(v) => setForm({ ...form, battingStyle: v })}>
+                    <SelectTrigger><SelectValue placeholder="Select batting style" /></SelectTrigger>
+                    <SelectContent>
+                      {BATTING_STYLES.map((s) => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {(form.role === "bowler" || form.role === "allrounder") && (
+                <div className="space-y-2">
+                  <Label>Bowling Style</Label>
+                  <Select value={form.bowlingStyle || "none"} onValueChange={(v) => setForm({ ...form, bowlingStyle: v === "none" ? "" : v })}>
+                    <SelectTrigger><SelectValue placeholder="Select bowling style" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">N/A</SelectItem>
+                      {BOWLING_STYLES.map((s) => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Team (optional)</Label>

@@ -16,6 +16,7 @@ router.post('/:id/extra', authenticateMatchToken, anyManager, validate(matchVali
 router.post('/:id/end', authenticateMatchToken, anyManager, validate(matchValidators.endMatchSchema), scoringController.endMatch);
 router.post('/:id/undo', authenticateMatchToken, anyManager, scoringController.undoLastEvent);
 router.post('/:id/switch-innings', authenticateMatchToken, anyManager, scoringController.switchInnings);
+router.post('/:id/super-over', authenticateMatchToken, anyManager, scoringController.saveSuperOver);
 router.post('/:id/set-players', authenticateMatchToken, anyManager, validate(matchValidators.setActivePlayersSchema), scoringController.setActivePlayers);
 
 // Public read

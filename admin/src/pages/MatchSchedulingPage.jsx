@@ -22,7 +22,7 @@ import {
   GitBranch, Activity, Trophy, Swords, Eye, Link2,
   TableProperties, Network, KanbanSquare, Clock
 } from "lucide-react";
-
+import { cn, toLocalISOString } from "@/lib/utils";
 import BracketTree from "@/components/bracket/BracketTree";
 import ProgressionView from "@/components/bracket/ProgressionView";
 import BracketBuilder from "@/components/bracket/BracketBuilder";
@@ -210,7 +210,7 @@ export default function MatchSchedulingPage() {
 
   const openEdit = (m) => {
     setSelectedMatch(m);
-    setEditForm({ venue: m.venue || "", startTime: m.startTime ? new Date(m.startTime).toISOString().slice(0, 16) : "", matchLabel: m.matchLabel || "" });
+    setEditForm({ venue: m.venue || "", startTime: toLocalISOString(m.startTime), matchLabel: m.matchLabel || "" });
     setShowEdit(true);
   };
 
@@ -405,7 +405,7 @@ export default function MatchSchedulingPage() {
                         {filtered.map((m, idx) => {
                           const dt = m.startTime ? new Date(m.startTime) : null;
                           const winnerId = m.result?.winner?._id || m.result?.winner;
-                          const winnerName = typeof m.result?.winner === "object" ? m.result.winner.name : (winnerId ? (String(winnerId) === String(m.teamA?._id) ? m.teamA?.name : m.teamB?.name) : "—");
+                          const winnerName = (m.result?.winner && typeof m.result.winner === "object") ? m.result.winner.name : (winnerId ? (String(winnerId) === String(m.teamA?._id) ? m.teamA?.name : m.teamB?.name) : "—");
                           return (
                             <TableRow key={m._id || m.id} className="group hover:bg-card/80 transition-colors">
                               <TableCell className="font-mono text-xs text-muted-foreground">{m.matchNumber || idx + 1}</TableCell>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAppContext } from "@/hooks/useAppContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -7,17 +7,29 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Trophy, MapPin, Clock } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, toLocalISOString } from "@/lib/utils";
 
 export default function MatchDetailDialog({ match, open, onClose, onSubmitResult, onSchedule, submitting }) {
   const { themeColor } = useAppContext();
   const [winnerId, setWinnerId] = useState("");
   const [scheduleData, setScheduleData] = useState({ 
-    startTime: match?.startTime ? new Date(match.startTime).toISOString().slice(0, 16) : "", 
+    startTime: toLocalISOString(match?.startTime), 
     venue: match?.venue || "",
     action: "",
     reason: ""
   });
+
+  useEffect(() => {
+    if (match) {
+      setScheduleData({
+        startTime: toLocalISOString(match.startTime),
+        venue: match.venue || "",
+        action: "",
+        reason: ""
+      });
+    }
+  }, [match]);
+
   const [isRescheduling, setIsRescheduling] = useState(false);
 
   if (!match) return null;

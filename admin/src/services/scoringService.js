@@ -10,6 +10,7 @@ const scoringService = {
   endMatch: (id, data) => apiClient.post(`/scoring/${id}/end`, data),
   undoLastEvent: (id) => apiClient.post(`/scoring/${id}/undo`),
   switchInnings: (id) => apiClient.post(`/scoring/${id}/switch-innings`),
+  saveSuperOver: (id, data) => apiClient.post(`/scoring/${id}/super-over`, data),
   setActivePlayers: (id, data) => apiClient.post(`/scoring/${id}/set-players`, data),
 
   // Public read

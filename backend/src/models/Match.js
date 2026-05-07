@@ -33,7 +33,7 @@ const matchSchema = new mongoose.Schema(
     },
     currentInning: {
       type: Number,
-      enum: [1, 2],
+      enum: [1, 2, 3, 4],
       default: 1,
     },
     battingTeam: {
@@ -112,6 +112,11 @@ const matchSchema = new mongoose.Schema(
     },
     // Whether this is the final match of the tournament
     isFinal: {
+      type: Boolean,
+      default: false,
+    },
+    // Whether this match went to a Super Over (tie breaker)
+    superOver: {
       type: Boolean,
       default: false,
     },

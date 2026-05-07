@@ -148,6 +148,22 @@ const switchInnings = async (req, res, next) => {
   }
 };
 
+const saveSuperOver = async (req, res, next) => {
+  try {
+    const performedBy = { id: req.user._id, role: req.userRole };
+    const result = await scoringService.saveSuperOver(req.params.id, req.body, performedBy);
+
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`match_${req.params.id}`).emit('super_over_started', result);
+    }
+
+    res.json(ApiResponse.ok(result, 'Super over started'));
+  } catch (error) {
+    next(error);
+  }
+};
+
 const setActivePlayers = async (req, res, next) => {
   try {
     const summary = await scoringService.setActivePlayers(req.params.id, req.body);
@@ -203,6 +219,7 @@ module.exports = {
   endMatch,
   undoLastEvent,
   switchInnings,
+  saveSuperOver,
   setActivePlayers,
   getMatchSummary,
   getScorecard,
