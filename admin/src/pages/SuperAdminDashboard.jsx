@@ -31,7 +31,8 @@ export default function SuperAdminDashboard() {
         const allMatches = matchData?.data || [];
 
         setClubs(Array.isArray(allClubs) ? allClubs : []);
-        setRecentMatches(allMatches.slice(0, 8));
+        const completedOnly = allMatches.filter(m => m.status === 'completed');
+        setRecentMatches(completedOnly.slice(0, 8));
 
         const live = allMatches.filter((m) => m.status === "live").length;
         const upcoming = allMatches.filter((m) => m.status === "scheduled" || m.status === "upcoming").length;

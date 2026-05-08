@@ -1,20 +1,17 @@
 const playerService = require('../services/player.service');
 const analyticsService = require('../services/analytics.service');
-const s3Service = require('../services/s3Service');
 const ApiResponse = require('../utils/ApiResponse');
 const { buildPaginationResponse } = require('../middlewares/pagination.middleware');
+const { processUploadedFiles, safeDeleteImage } = require('../utils/imageHandler');
+
+const PLAYER_IMAGE_FIELDS = [
+  { fieldname: 'avatar', folder: (id) => `players/${id}/avatar`, bodyKey: 'avatar' },
+];
 
 const create = async (req, res, next) => {
   try {
-    if (req.files && Array.isArray(req.files)) {
-      for (const file of req.files) {
-        if (file.fieldname === 'avatar') {
-          const key = s3Service.generateKey('players', file.originalname);
-          req.body.avatar = await s3Service.uploadToS3(file.buffer, key, file.mimetype);
-        }
-      }
-    }
-
+    // For create, we don't have an ID yet — use a temp folder; service can update
+    await processUploadedFiles({ ...req, params: { id: 'uploads' } }, PLAYER_IMAGE_FIELDS);
     const player = await playerService.createPlayer(req.body);
     res.status(201).json(ApiResponse.created(player));
   } catch (error) {
@@ -56,16 +53,18 @@ const getByTeam = async (req, res, next) => {
 
 const update = async (req, res, next) => {
   try {
-    if (req.files && Array.isArray(req.files)) {
-      for (const file of req.files) {
-        if (file.fieldname === 'avatar') {
-          const key = s3Service.generateKey(`players/${req.params.id}`, file.originalname);
-          req.body.avatar = await s3Service.uploadToS3(file.buffer, key, file.mimetype);
-        }
-      }
-    }
+    const { player: existing } = await playerService.getPlayerById(req.params.id);
+    const oldAvatar = existing?.avatar;
+
+    await processUploadedFiles(req, PLAYER_IMAGE_FIELDS);
 
     const player = await playerService.updatePlayer(req.params.id, req.body);
+
+    // Delete old avatar from S3 if replaced
+    if (req.body.avatar !== undefined && oldAvatar && oldAvatar !== player.avatar) {
+      await safeDeleteImage(oldAvatar);
+    }
+
     res.json(ApiResponse.ok(player, 'Player updated'));
   } catch (error) {
     next(error);
@@ -74,7 +73,10 @@ const update = async (req, res, next) => {
 
 const remove = async (req, res, next) => {
   try {
+    const { player: existing } = await playerService.getPlayerById(req.params.id);
     await playerService.deletePlayer(req.params.id);
+    // Clean up avatar from S3
+    if (existing?.avatar) await safeDeleteImage(existing.avatar);
     res.json(ApiResponse.ok(null, 'Player deleted'));
   } catch (error) {
     next(error);

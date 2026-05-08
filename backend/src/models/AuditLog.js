@@ -20,6 +20,10 @@ const auditLogSchema = new mongoose.Schema(
         'inning_switch',
         'match_ended',
         'match_resumed',
+        'match_paused',
+        'super_over_started',
+        'active_players_updated',
+        'substitute_added',
       ],
     },
     performedBy: {

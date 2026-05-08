@@ -10,6 +10,14 @@ const matchSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Team',
     },
+    squadA: {
+      playingXI: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Player' }],
+      substitutes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Player' }]
+    },
+    squadB: {
+      playingXI: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Player' }],
+      substitutes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Player' }]
+    },
     tournamentId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Tournament',

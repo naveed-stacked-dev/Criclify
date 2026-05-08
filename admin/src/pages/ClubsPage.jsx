@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAppContext } from "@/hooks/useAppContext";
 import clubService from "@/services/clubService";
 import authService from "@/services/authService";
+import { appendImageField } from "@/utils/imageUtils";
 import { toast } from "sonner";
 import { encodeId } from "@/utils/crypto";
 import ImageUpload from "@/components/ImageUpload";
@@ -96,11 +97,7 @@ export default function ClubsPage() {
       formData.append("name", form.name);
       if (form.slug) formData.append("slug", form.slug);
       formData.append("sportType", form.sportType);
-      if (form.logoUrl instanceof File) {
-        formData.append("logo", form.logoUrl);
-      } else if (form.logoUrl) {
-        formData.append("logo", form.logoUrl);
-      }
+      appendImageField(formData, "logo", form.logoUrl);
 
       await clubService.adminCreate(formData);
       toast.success("Club created successfully");
@@ -119,11 +116,7 @@ export default function ClubsPage() {
       formData.append("name", form.name);
       if (form.slug) formData.append("slug", form.slug);
       formData.append("sportType", form.sportType);
-      if (form.logoUrl instanceof File) {
-        formData.append("logo", form.logoUrl);
-      } else if (form.logoUrl) {
-        formData.append("logo", form.logoUrl);
-      }
+      appendImageField(formData, "logo", form.logoUrl);
 
       await clubService.update(selected._id || selected.id, formData);
       toast.success("Club updated");

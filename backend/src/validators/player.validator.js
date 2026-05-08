@@ -12,7 +12,7 @@ const createPlayerSchema = Joi.object({
     .messages({ 'any.required': 'Club ID is required' }),
   jerseyNumber: Joi.string().allow(null, '').optional(),
   phone: Joi.string().allow(null, '').optional(),
-  avatar: Joi.string().uri().allow(null, '').optional(),
+  avatar: Joi.any().optional(),
   battingStyle: Joi.string().valid('right-hand', 'left-hand').default('right-hand'),
   bowlingStyle: Joi.string().allow(null, '').optional(),
 });
@@ -20,7 +20,7 @@ const createPlayerSchema = Joi.object({
 const updatePlayerSchema = Joi.object({
   name: Joi.string().trim().min(2).max(100).optional(),
   role: Joi.string().valid('batsman', 'bowler', 'allrounder', 'wicketkeeper').optional(),
-  avatar: Joi.string().uri().allow(null, '').optional(),
+  avatar: Joi.any().optional(),
   battingStyle: Joi.string().valid('right-hand', 'left-hand').optional(),
   bowlingStyle: Joi.string().allow(null, '').optional(),
   teamId: objectId.allow(null, '').optional(),

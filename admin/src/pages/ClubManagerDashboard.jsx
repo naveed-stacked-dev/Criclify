@@ -46,7 +46,8 @@ export default function ClubManagerDashboard() {
         const players = playerRes.status === "fulfilled" ? playerRes.value.data : null;
 
         const allMatches = matches?.data || [];
-        setRecentMatches(allMatches.slice(0, 5));
+        const completedOnly = allMatches.filter(m => m.status === 'completed');
+        setRecentMatches(completedOnly.slice(0, 5));
 
         setStats({
           totalTeams: teams?.total || (teams?.data || []).length || 0,

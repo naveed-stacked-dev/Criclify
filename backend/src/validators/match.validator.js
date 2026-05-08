@@ -25,6 +25,14 @@ const updateMatchSchema = Joi.object({
   round: Joi.number().integer().optional(),
   matchLabel: Joi.string().trim().max(50).allow(null, '').optional(),
   status: Joi.string().valid('unscheduled', 'upcoming', 'live', 'completed', 'abandoned').optional(),
+  squadA: Joi.object({
+    playingXI: Joi.array().items(objectId).optional(),
+    substitutes: Joi.array().items(objectId).optional()
+  }).optional(),
+  squadB: Joi.object({
+    playingXI: Joi.array().items(objectId).optional(),
+    substitutes: Joi.array().items(objectId).optional()
+  }).optional(),
 }).min(1).messages({ 'object.min': 'At least one field must be provided to update' });
 
 const scheduleMatchSchema = Joi.object({
@@ -82,6 +90,12 @@ const setActivePlayersSchema = Joi.object({
   bowler: objectId.optional(),
 }).min(1).messages({ 'object.min': 'At least one player must be specified' });
 
+const pauseMatchSchema = Joi.object({
+  reason: Joi.string().trim().max(500).allow(null, '').optional(),
+  newStartTime: Joi.date().iso().allow(null, '').optional()
+    .messages({ 'date.format': 'Please provide a valid date and time for rescheduling' }),
+});
+
 // ─── Streaming ───────────────────────────────────────────────────
 const streamUrlSchema = Joi.object({
   youtubeStreamUrl: Joi.string().trim().required()
@@ -104,6 +118,7 @@ module.exports = {
   addExtraSchema,
   endMatchSchema,
   setActivePlayersSchema,
+  pauseMatchSchema,
   streamUrlSchema,
   assignManagerSchema,
 };

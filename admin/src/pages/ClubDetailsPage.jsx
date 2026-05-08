@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useAppContext } from "@/hooks/useAppContext";
 import clubService from "@/services/clubService";
 import { decodeId } from "@/utils/crypto";
+import { appendImageField } from "@/utils/imageUtils";
 import { toast } from "sonner";
 import ImageUpload from "@/components/ImageUpload";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -95,19 +96,8 @@ export default function ClubDetailsPage() {
       formData.append("description", form.description);
       formData.append("themeColor", form.themeColor);
       
-      // Handle Logo
-      if (form.logo instanceof File) {
-        formData.append("logo", form.logo);
-      } else if (form.logo === null) {
-        formData.append("logo", ""); // Signal removal
-      }
-
-      // Handle Banner
-      if (form.banner instanceof File) {
-        formData.append("bannerUrl", form.banner);
-      } else if (form.banner === null) {
-        formData.append("bannerUrl", "");
-      }
+      appendImageField(formData, "logo", form.logo);
+      appendImageField(formData, "bannerUrl", form.banner);
 
       await clubService.update(clubId, formData);
 

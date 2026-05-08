@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAppContext } from "@/hooks/useAppContext";
 import clubService from "@/services/clubService";
 import teamService from "@/services/teamService";
+import { appendImageField } from "@/utils/imageUtils";
 import { toast } from "sonner";
 import ImageUpload from "@/components/ImageUpload";
 import { Button } from "@/components/ui/button";
@@ -91,11 +92,7 @@ export default function TeamsPage() {
       const formData = new FormData();
       formData.append("name", form.name);
       formData.append("clubId", selectedClub);
-      if (form.logoUrl instanceof File) {
-        formData.append("logo", form.logoUrl);
-      } else if (form.logoUrl) {
-        formData.append("logo", form.logoUrl);
-      }
+      appendImageField(formData, "logo", form.logoUrl);
 
       await teamService.create(formData);
       toast.success("Team created");
@@ -112,11 +109,7 @@ export default function TeamsPage() {
     try {
       const formData = new FormData();
       formData.append("name", form.name);
-      if (form.logoUrl instanceof File) {
-        formData.append("logo", form.logoUrl);
-      } else if (form.logoUrl) {
-        formData.append("logo", form.logoUrl);
-      }
+      appendImageField(formData, "logo", form.logoUrl);
 
       await teamService.update(selected._id || selected.id, formData);
       toast.success("Team updated");
@@ -146,7 +139,7 @@ export default function TeamsPage() {
     } catch { /* interceptor */ } finally { setSubmitting(false); }
   };
 
-  const openEdit = (team) => { setSelected(team); setForm({ name: team.name || "", logoUrl: team.logoUrl || "" }); setShowEdit(true); };
+  const openEdit = (team) => { setSelected(team); setForm({ name: team.name || "", logoUrl: team.logo || "" }); setShowEdit(true); };
   const openDelete = (team) => { setSelected(team); setShowDelete(true); };
 
   const filtered = teams.filter((t) => (t.name || "").toLowerCase().includes(search.toLowerCase()));
@@ -224,7 +217,7 @@ export default function TeamsPage() {
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${themeColor}20` }}>
-                            {team.logoUrl ? <img src={team.logoUrl} alt="" className="w-6 h-6 rounded object-cover" /> : <Shield className="w-4 h-4" style={{ color: themeColor }} />}
+                            {team.logo ? <img src={team.logo} alt="" className="w-6 h-6 rounded object-cover" /> : <Shield className="w-4 h-4" style={{ color: themeColor }} />}
                           </div>
                           <span className="font-medium">{team.name}</span>
                         </div>
@@ -246,7 +239,7 @@ export default function TeamsPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => openEdit(team)}><Pencil className="w-4 h-4 mr-2" /> Edit</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => fetchRoster(team)}><Users className="w-4 h-4 mr-2" /> View Roster</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => fetchRoster(team)}><Users className="w-4 h-4 mr-2" /> View Players</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => openDelete(team)} className="text-destructive focus:text-destructive"><Trash2 className="w-4 h-4 mr-2" /> Delete</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -321,13 +314,13 @@ export default function TeamsPage() {
       <Dialog open={showRoster} onOpenChange={setShowRoster}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Users className="w-5 h-5" style={{ color: themeColor }} /> {selected?.name} — Roster</DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><Users className="w-5 h-5" style={{ color: themeColor }} /> {selected?.name} — Players</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {rosterLoading ? (
               <div className="space-y-2">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
             ) : roster.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-6">No players in this roster yet</p>
+              <p className="text-sm text-muted-foreground text-center py-6">No players in this team yet</p>
             ) : (
               <div className="space-y-2 max-h-[300px] overflow-y-auto">
                 {roster.map((p) => (
@@ -346,13 +339,6 @@ export default function TeamsPage() {
                 ))}
               </div>
             )}
-            {/* Add player */}
-            <div className="flex gap-2 pt-2 border-t border-border">
-              <Input placeholder="Player ID" value={addPlayerForm.playerId} onChange={(e) => setAddPlayerForm({ playerId: e.target.value })} className="flex-1" />
-              <Button size="sm" onClick={handleAddPlayer} disabled={submitting}>
-                <UserPlus className="w-4 h-4 mr-1" /> Add
-              </Button>
-            </div>
           </div>
         </DialogContent>
       </Dialog>

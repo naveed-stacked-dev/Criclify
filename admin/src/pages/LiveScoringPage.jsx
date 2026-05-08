@@ -18,6 +18,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PlayCircle, RotateCcw, AlertTriangle, UserMinus, SkipForward, Ban, Loader2, Clock, PauseCircle, Pencil, Trophy } from "lucide-react";
 
+const getPlayerId = (player) => player?._id || player?.id || player;
+
 function CountdownTimer({ startTime, onTimeUp }) {
   const { themeColor } = useAppContext();
   const [timeLeft, setTimeLeft] = useState("");
@@ -92,10 +94,16 @@ export default function LiveScoringPage() {
   const [activeBowler, setActiveBowler] = useState("");
   const [wicketForm, setWicketForm] = useState({ batsman: "", type: "bowled", fielder: "" });
   const [pauseReason, setPauseReason] = useState("");
+  const [pauseStartTime, setPauseStartTime] = useState("");
   const [newBowler, setNewBowler] = useState("");
   const [prevBalls, setPrevBalls] = useState(null);
   const [superOverOvers, setSuperOverOvers] = useState(1);
   const [matchResult, setMatchResult] = useState(null); // { winnerTeam, loserTeam, marginType, marginValue, summary }
+
+  // Substitute Handling
+  const [showSubPrompt, setShowSubPrompt] = useState(false);
+  const [pendingSub, setPendingSub] = useState(null); // { role, playerId, squadSide }
+  const [subForm, setSubForm] = useState({ replacedPlayerId: "", reason: "" });
 
   // Data fetching state for player selection
   const [battingTeamPlayers, setBattingTeamPlayers] = useState([]);
@@ -181,16 +189,16 @@ export default function LiveScoringPage() {
       if (batId) teamService.getPlayers(batId).then(res => setBattingTeamPlayers(res.data?.data || []));
       if (bowlId) teamService.getPlayers(bowlId).then(res => setBowlingTeamPlayers(res.data?.data || []));
       
-      // Pre-fill active players
-      if (scorecard.currentBatsmen?.striker?.playerId?._id) {
-        setActiveStriker(scorecard.currentBatsmen.striker.playerId._id);
-      }
-      if (scorecard.currentBatsmen?.nonStriker?.playerId?._id) {
-        setActiveNonStriker(scorecard.currentBatsmen.nonStriker.playerId._id);
-      }
-      if (scorecard.currentBowler?.playerId?._id) {
-        setActiveBowler(scorecard.currentBowler.playerId._id);
-      }
+      const isOut = (playerId) => (currentInnings.battingOrder || []).some(
+        (bat) => String(getPlayerId(bat.playerId)) === String(playerId) && bat.isOut
+      );
+      const currentStrikerId = getPlayerId(scorecard.currentBatsmen?.striker?.playerId);
+      const currentNonStrikerId = getPlayerId(scorecard.currentBatsmen?.nonStriker?.playerId);
+      const currentBowlerId = getPlayerId(scorecard.currentBowler?.playerId);
+
+      setActiveStriker(currentStrikerId && !isOut(currentStrikerId) ? currentStrikerId : "");
+      setActiveNonStriker(currentNonStrikerId && !isOut(currentNonStrikerId) ? currentNonStrikerId : "");
+      setActiveBowler(currentBowlerId || "");
     }
   }, [showPlayers, match, scorecard, currentInnings]);
 
@@ -260,6 +268,19 @@ export default function LiveScoringPage() {
       setShowPlayers(false);
       queryClient.invalidateQueries({ queryKey: ["scorecard", matchId] });
     },
+  });
+
+  const addSubstituteMut = useMutation({
+    mutationFn: (data) => scoringService.addSubstitute(matchId, data),
+    onSuccess: () => {
+      toast.success("Substitute added");
+      setShowSubPrompt(false);
+      setPendingSub(null);
+      setSubForm({ replacedPlayerId: "", reason: "" });
+      queryClient.invalidateQueries({ queryKey: ["scorecard", matchId] });
+      queryClient.invalidateQueries({ queryKey: ["match", matchId] });
+    },
+    onError: (err) => toast.error(err?.response?.data?.message || "Failed to add substitute")
   });
 
   const undoMut = useMutation({
@@ -572,9 +593,47 @@ export default function LiveScoringPage() {
   const striker = scorecard?.currentBatsmen?.striker;
   const nonStriker = scorecard?.currentBatsmen?.nonStriker;
   const bowler = scorecard?.currentBowler;
+  const battingOrder = currentInnings?.battingOrder || [];
   
-  const strikerId = striker?.playerId?._id || striker?.playerId?.id || striker?.playerId;
-  const bowlerId = bowler?.playerId?._id || bowler?.playerId?.id || bowler?.playerId;
+  const strikerId = getPlayerId(striker?.playerId);
+  const nonStrikerId = getPlayerId(nonStriker?.playerId);
+  const bowlerId = getPlayerId(bowler?.playerId);
+  const outBatsmanIds = new Set(
+    battingOrder
+      .filter((bat) => bat.isOut)
+      .map((bat) => String(getPlayerId(bat.playerId)))
+  );
+
+  const squadBat = isTeamABatting ? match?.squadA : match?.squadB;
+  const squadBowl = isTeamABatting ? match?.squadB : match?.squadA;
+
+  const filterBySquad = (players, squad) => {
+    if (!squad || !squad.playingXI || squad.playingXI.length === 0) return players;
+    const squadIds = new Set([
+      ...squad.playingXI.map(getPlayerId),
+      ...(squad.substitutes || []).map(getPlayerId)
+    ]);
+    return players.filter(p => squadIds.has(String(getPlayerId(p))));
+  };
+
+  const filteredBattingPlayers = filterBySquad(battingTeamPlayers, squadBat);
+  const filteredBowlingPlayers = filterBySquad(bowlingTeamPlayers, squadBowl);
+
+  const availableBatsmen = filteredBattingPlayers.filter(
+    (player) => !outBatsmanIds.has(String(getPlayerId(player)))
+  );
+  const strikerOptions = availableBatsmen.filter(
+    (player) => String(getPlayerId(player)) !== String(activeNonStriker)
+  );
+  const nonStrikerOptions = availableBatsmen.filter(
+    (player) => String(getPlayerId(player)) !== String(activeStriker)
+  );
+
+  const isSubstitute = (playerId, squadSide) => {
+    const squad = squadSide === 'bat' ? squadBat : squadBowl;
+    if (!squad || !squad.substitutes) return false;
+    return squad.substitutes.map(getPlayerId).includes(String(playerId));
+  };
 
   const handleScore = (runs) => {
     if (!strikerId || !bowlerId) return toast.error("Please set active players first");
@@ -588,6 +647,13 @@ export default function LiveScoringPage() {
 
   const handleBowlerChange = () => {
     if (!newBowler) return toast.error("Please select a bowler");
+    
+    if (isSubstitute(newBowler, 'bowl') && String(newBowler) !== String(bowlerId)) {
+      setPendingSub({ role: 'bowler', playerId: newBowler, squadSide: 'bowl' });
+      setShowSubPrompt(true);
+      return;
+    }
+
     setPlayersMut.mutate(
       { striker: strikerId, nonStriker: nonStriker?.playerId?._id || nonStriker?.playerId, bowler: newBowler },
       {
@@ -599,8 +665,54 @@ export default function LiveScoringPage() {
     );
   };
 
+  const handleUpdateActivePlayers = () => {
+    if (activeStriker && activeStriker === activeNonStriker) {
+      toast.error("Striker and non-striker must be different players");
+      return;
+    }
+    
+    // Check for substitutes
+    if (activeStriker && isSubstitute(activeStriker, 'bat') && String(activeStriker) !== String(strikerId)) {
+      setPendingSub({ role: 'striker', playerId: activeStriker, squadSide: 'bat' });
+      setShowSubPrompt(true);
+      return;
+    }
+    if (activeNonStriker && isSubstitute(activeNonStriker, 'bat') && String(activeNonStriker) !== String(nonStrikerId)) {
+      setPendingSub({ role: 'nonStriker', playerId: activeNonStriker, squadSide: 'bat' });
+      setShowSubPrompt(true);
+      return;
+    }
+    if (activeBowler && isSubstitute(activeBowler, 'bowl') && String(activeBowler) !== String(bowlerId)) {
+      setPendingSub({ role: 'bowler', playerId: activeBowler, squadSide: 'bowl' });
+      setShowSubPrompt(true);
+      return;
+    }
+
+    setPlayersMut.mutate({ striker: activeStriker, nonStriker: activeNonStriker, bowler: activeBowler });
+  };
+
+  const submitSubstitute = () => {
+    if (!subForm.replacedPlayerId) return toast.error("Please select who is being replaced");
+    addSubstituteMut.mutate({
+      substitutedIn: pendingSub.playerId,
+      substitutedOut: subForm.replacedPlayerId,
+      reason: subForm.reason
+    }, {
+      onSuccess: () => {
+        if (pendingSub.role === 'bowler' && newBowler === pendingSub.playerId) {
+          setPlayersMut.mutate(
+            { striker: strikerId, nonStriker: nonStriker?.playerId?._id || nonStriker?.playerId, bowler: newBowler },
+            { onSuccess: () => { setShowBowlerChange(false); setNewBowler(""); } }
+          );
+        } else {
+          const updateData = { striker: activeStriker, nonStriker: activeNonStriker, bowler: activeBowler };
+          setPlayersMut.mutate(updateData);
+        }
+      }
+    });
+  };
+
   // Gather summary data for display
-  const battingOrder = currentInnings?.battingOrder || [];
   const bowlingFigures = currentInnings?.bowlingFigures || [];
   const extras = currentInnings?.extras || {};
   const otherInningKey = currentInningKey === 'first' ? 'second' : 'first';
@@ -988,7 +1100,7 @@ export default function LiveScoringPage() {
               <Select value={newBowler} onValueChange={setNewBowler}>
                 <SelectTrigger><SelectValue placeholder="Select Bowler" /></SelectTrigger>
                 <SelectContent>
-                  {bowlingTeamPlayers.map(p => <SelectItem key={p._id || p.id} value={p._id || p.id}>{p.name}</SelectItem>)}
+                  {filteredBowlingPlayers.map(p => <SelectItem key={p._id || p.id} value={p._id || p.id}>{p.name} {isSubstitute(p._id || p.id, 'bowl') ? '(Sub)' : ''}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -1009,19 +1121,31 @@ export default function LiveScoringPage() {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Striker</Label>
-              <Select value={activeStriker} onValueChange={setActiveStriker}>
+              <Select
+                value={activeStriker}
+                onValueChange={(value) => {
+                  setActiveStriker(value);
+                  if (value === activeNonStriker) setActiveNonStriker("");
+                }}
+              >
                 <SelectTrigger><SelectValue placeholder="Select Batsman" /></SelectTrigger>
                 <SelectContent>
-                  {battingTeamPlayers.map(p => <SelectItem key={p._id || p.id} value={p._id || p.id}>{p.name}</SelectItem>)}
+                  {strikerOptions.map(p => <SelectItem key={p._id || p.id} value={p._id || p.id}>{p.name} {isSubstitute(p._id || p.id, 'bat') ? '(Sub)' : ''}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label>Non-Striker</Label>
-              <Select value={activeNonStriker} onValueChange={setActiveNonStriker}>
+              <Select
+                value={activeNonStriker}
+                onValueChange={(value) => {
+                  setActiveNonStriker(value);
+                  if (value === activeStriker) setActiveStriker("");
+                }}
+              >
                 <SelectTrigger><SelectValue placeholder="Select Batsman" /></SelectTrigger>
                 <SelectContent>
-                  {battingTeamPlayers.map(p => <SelectItem key={p._id || p.id} value={p._id || p.id}>{p.name}</SelectItem>)}
+                  {nonStrikerOptions.map(p => <SelectItem key={p._id || p.id} value={p._id || p.id}>{p.name} {isSubstitute(p._id || p.id, 'bat') ? '(Sub)' : ''}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -1030,14 +1154,53 @@ export default function LiveScoringPage() {
               <Select value={activeBowler} onValueChange={setActiveBowler}>
                 <SelectTrigger><SelectValue placeholder="Select Bowler" /></SelectTrigger>
                 <SelectContent>
-                  {bowlingTeamPlayers.map(p => <SelectItem key={p._id || p.id} value={p._id || p.id}>{p.name}</SelectItem>)}
+                  {filteredBowlingPlayers.map(p => <SelectItem key={p._id || p.id} value={p._id || p.id}>{p.name} {isSubstitute(p._id || p.id, 'bowl') ? '(Sub)' : ''}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={() => setPlayersMut.mutate({ striker: activeStriker, nonStriker: activeNonStriker, bowler: activeBowler })} disabled={setPlayersMut.isPending}>
-              {setPlayersMut.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Update Players
+            <Button onClick={handleUpdateActivePlayers} disabled={setPlayersMut.isPending || addSubstituteMut.isPending}>
+              {(setPlayersMut.isPending || addSubstituteMut.isPending) && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Update Players
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Substitute Prompt Modal */}
+      <Dialog open={showSubPrompt} onOpenChange={(open) => {
+        if (!open && !addSubstituteMut.isPending) {
+          setShowSubPrompt(false);
+          setPendingSub(null);
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-amber-500 flex items-center gap-2"><AlertTriangle className="w-5 h-5" /> Substitute Player Selected</DialogTitle>
+            <DialogDescription>You selected a substitute player. Please specify who they are replacing and the reason.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Who is being replaced?</Label>
+              <Select value={subForm.replacedPlayerId} onValueChange={v => setSubForm({...subForm, replacedPlayerId: v})}>
+                <SelectTrigger><SelectValue placeholder="Select Player" /></SelectTrigger>
+                <SelectContent>
+                  {pendingSub?.squadSide === 'bat' 
+                    ? squadBat?.playingXI?.map(p => <SelectItem key={p._id || p.id} value={p._id || p.id}>{p.name}</SelectItem>)
+                    : squadBowl?.playingXI?.map(p => <SelectItem key={p._id || p.id} value={p._id || p.id}>{p.name}</SelectItem>)
+                  }
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Reason (e.g. Injury, Concussion)</Label>
+              <Input placeholder="Reason" value={subForm.reason} onChange={e => setSubForm({...subForm, reason: e.target.value})} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSubPrompt(false)}>Cancel</Button>
+            <Button onClick={submitSubstitute} disabled={addSubstituteMut.isPending || !subForm.replacedPlayerId}>
+              {addSubstituteMut.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Confirm Substitute
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1053,13 +1216,17 @@ export default function LiveScoringPage() {
               <Label>Reason (Optional)</Label>
               <Input placeholder="e.g., Rain delay, Bad light" value={pauseReason} onChange={e => setPauseReason(e.target.value)} />
             </div>
+            <div className="space-y-2">
+              <Label>Resume At (Optional)</Label>
+              <Input type="datetime-local" value={pauseStartTime} onChange={e => setPauseStartTime(e.target.value)} />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowPause(false)}>Cancel</Button>
             <Button 
               className="text-white shadow-md" 
               style={{ backgroundColor: themeColor }}
-              onClick={() => pauseMatchMut.mutate({ reason: pauseReason })} 
+              onClick={() => pauseMatchMut.mutate({ reason: pauseReason, newStartTime: pauseStartTime })} 
               disabled={pauseMatchMut.isPending}
             >
               {pauseMatchMut.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Pause Match

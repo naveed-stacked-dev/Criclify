@@ -108,6 +108,15 @@ const matchSummarySchema = new mongoose.Schema(
       enum: ['not_started', 'live', 'innings_break', 'completed'],
       default: 'not_started',
     },
+    substitutions: [
+      {
+        substitutedIn: { type: mongoose.Schema.Types.ObjectId, ref: 'Player' },
+        substitutedOut: { type: mongoose.Schema.Types.ObjectId, ref: 'Player' },
+        reason: { type: String, default: 'Injury' },
+        inning: { type: Number },
+        timestamp: { type: Date, default: Date.now }
+      }
+    ],
   },
   { timestamps: true }
 );

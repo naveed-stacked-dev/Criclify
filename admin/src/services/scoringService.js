@@ -12,6 +12,7 @@ const scoringService = {
   switchInnings: (id) => apiClient.post(`/scoring/${id}/switch-innings`),
   saveSuperOver: (id, data) => apiClient.post(`/scoring/${id}/super-over`, data),
   setActivePlayers: (id, data) => apiClient.post(`/scoring/${id}/set-players`, data),
+  addSubstitute: (id, data) => apiClient.post(`/scoring/${id}/substitute`, data),
 
   // Public read
   getSummary: (id) => apiClient.get(`/scoring/${id}/summary`),

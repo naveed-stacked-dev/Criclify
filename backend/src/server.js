@@ -3,11 +3,15 @@ const { Server } = require('socket.io');
 const app = require('./app');
 const connectDB = require('./config/db');
 const config = require('./config/env');
+const { initRedis } = require('./config/redis');
 const setupMatchSocket = require('./sockets/matchHandler');
 
 const startServer = async () => {
   // Connect to MongoDB
   await connectDB();
+
+  // Initialize Redis (pub/sub for live scoring)
+  await initRedis();
 
   // Create HTTP server
   const server = http.createServer(app);

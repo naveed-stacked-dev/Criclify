@@ -137,7 +137,7 @@ const resumeMatch = async (matchId, performedBy) => {
  * Sets match back to 'upcoming' status while preserving ALL summary data.
  * Resume must be used to continue — startMatch will be blocked.
  */
-const pauseMatch = async (matchId, reason, performedBy) => {
+const pauseMatch = async (matchId, { reason, newStartTime }, performedBy) => {
   const match = await Match.findById(matchId);
   if (!match) throw ApiError.notFound('Match not found');
   if (match.status !== 'live') throw ApiError.conflict('Match is not currently live');
@@ -148,18 +148,29 @@ const pauseMatch = async (matchId, reason, performedBy) => {
   // Snapshot current innings state inside the match document before pausing
   // so that resumeMatch can restore it perfectly.
   match.status = 'upcoming';
+
   // Preserve reschedule reason for display purposes
   if (reason) {
     match.rescheduleReason = reason;
     match.rescheduleAction = 'postpone';
   }
+
+  // Update start time if provided (postponing)
+  if (newStartTime && String(newStartTime).trim() !== '') {
+    const date = new Date(newStartTime);
+    if (!isNaN(date.getTime())) {
+      match.startTime = date;
+      match.rescheduleAction = 'postpone';
+    }
+  }
+
   await match.save();
 
   await AuditLog.create({
     matchId,
     action: 'match_paused',
     performedBy,
-    description: `Match paused. Reason: ${reason || 'Not specified'}. Innings: ${summary.currentInning}.`,
+    description: `Match paused. Reason: ${reason || 'Not specified'}. ${newStartTime ? `Rescheduled to: ${newStartTime}` : ''} Innings: ${summary.currentInning}.`,
   });
 
   return { match, summary };
@@ -734,6 +745,34 @@ const getMatchSummary = async (matchId) => {
   return summary;
 };
 
+/**
+ * Add a substitute to the match summary.
+ */
+const addSubstitute = async (matchId, { substitutedIn, substitutedOut, reason }, performedBy) => {
+  const summary = await MatchSummary.findOne({ matchId });
+  if (!summary) throw ApiError.notFound('Match summary not found');
+
+  summary.substitutions.push({
+    substitutedIn,
+    substitutedOut,
+    reason: reason || 'Injury',
+    inning: summary.currentInning,
+    timestamp: new Date()
+  });
+
+  await summary.save();
+
+  await AuditLog.create({
+    matchId,
+    action: 'substitution',
+    performedBy,
+    eventData: { substitutedIn, substitutedOut, reason },
+    description: `Substitution: Player ${substitutedIn} replaced ${substitutedOut} (${reason || 'Injury'}).`,
+  });
+
+  return summary;
+};
+
 // ─── HELPERS ─────────────────────────────────────────────────────────
 
 function updateBattingOrder(inning, batsmanId, runs, isFour, isSix) {
@@ -781,10 +820,66 @@ function updateBowlingFigures(inning, bowlerId, runs, isWicket, legalBalls) {
   entry.overs = Math.floor(entry.balls / 6);
 }
 
+function cloneCurrentBatsman(batsman = {}) {
+  return {
+    playerId: batsman.playerId,
+    runs: batsman.runs || 0,
+    balls: batsman.balls || 0,
+    fours: batsman.fours || 0,
+    sixes: batsman.sixes || 0,
+  };
+}
+
 function swapStrike(summary) {
-  const temp = summary.currentBatsmen.striker;
-  summary.currentBatsmen.striker = summary.currentBatsmen.nonStriker;
-  summary.currentBatsmen.nonStriker = temp;
+  const striker = cloneCurrentBatsman(summary.currentBatsmen.striker);
+  const nonStriker = cloneCurrentBatsman(summary.currentBatsmen.nonStriker);
+
+  summary.currentBatsmen.striker = nonStriker;
+  summary.currentBatsmen.nonStriker = striker;
+  summary.markModified('currentBatsmen');
+}
+
+function buildCurrentBatsmanFromOrder(inning, playerId) {
+  if (!playerId) return {};
+  const entry = inning.battingOrder.find(
+    (b) => b.playerId?.toString() === playerId.toString()
+  );
+  return {
+    playerId,
+    runs: entry?.runs || 0,
+    balls: entry?.balls || 0,
+    fours: entry?.fours || 0,
+    sixes: entry?.sixes || 0,
+  };
+}
+
+function buildCurrentBowlerFromFigures(inning, bowlerId) {
+  if (!bowlerId) return {};
+  const entry = inning.bowlingFigures.find(
+    (b) => b.playerId?.toString() === bowlerId.toString()
+  );
+  if (!entry) return { playerId: bowlerId, overs: 0, balls: 0, runs: 0, wickets: 0, maidens: 0 };
+  return {
+    playerId: bowlerId,
+    overs: entry.overs || 0,
+    balls: (entry.balls || 0) % 6,
+    runs: entry.runs || 0,
+    wickets: entry.wickets || 0,
+    maidens: entry.maidens || 0,
+  };
+}
+
+function getNextAvailableBatsman(seedOrder, inning, activeState) {
+  return seedOrder.find((playerId) => {
+    if (!playerId) return false;
+    if (activeState.striker?.toString() === playerId.toString()) return false;
+    if (activeState.nonStriker?.toString() === playerId.toString()) return false;
+
+    const entry = inning.battingOrder.find(
+      (b) => b.playerId?.toString() === playerId.toString()
+    );
+    return !entry?.isOut;
+  });
 }
 
 /**
@@ -797,6 +892,18 @@ async function recomputeSummary(matchId, match) {
   // Reset summary
   let summary = await MatchSummary.findOne({ matchId });
   if (!summary) throw ApiError.notFound('Match summary not found');
+
+  const startingCurrentInning = summary.currentInning || match.currentInning || 1;
+  const startingCurrentInningKey = getInningKey(startingCurrentInning);
+  const startingCurrentBowler = summary.currentBowler?.playerId || null;
+  const seedBattingOrders = {
+    first: [...(summary.innings.first?.battingOrder || [])].map((b) => b.playerId),
+    second: [...(summary.innings.second?.battingOrder || [])].map((b) => b.playerId),
+    superOverFirst: [...(summary.innings.superOverFirst?.battingOrder || [])].map((b) => b.playerId),
+    superOverSecond: [...(summary.innings.superOverSecond?.battingOrder || [])].map((b) => b.playerId),
+  };
+  const activeByInning = {};
+  const lastBowlerByInning = {};
 
   // Reset innings
   summary.innings.first = {
@@ -850,12 +957,32 @@ async function recomputeSummary(matchId, match) {
     };
   }
 
-  let currentInning = 1;
+  let currentInning = startingCurrentInning;
 
   for (const event of events) {
     currentInning = event.inning;
     const inningKey = getInningKey(event.inning);
     const inning = summary.innings[inningKey];
+    if (!activeByInning[inningKey]) {
+      const seedOrder = seedBattingOrders[inningKey].filter(Boolean);
+      activeByInning[inningKey] = {
+        striker: seedOrder[0] || event.batsmanId,
+        nonStriker: seedOrder[1] || null,
+      };
+    }
+    const activeState = activeByInning[inningKey];
+    if (
+      event.batsmanId &&
+      activeState.striker?.toString() !== event.batsmanId.toString() &&
+      activeState.nonStriker?.toString() === event.batsmanId.toString()
+    ) {
+      const temp = activeState.striker;
+      activeState.striker = activeState.nonStriker;
+      activeState.nonStriker = temp;
+    } else if (event.batsmanId && activeState.striker?.toString() !== event.batsmanId.toString()) {
+      activeState.striker = event.batsmanId;
+    }
+    lastBowlerByInning[inningKey] = event.bowlerId;
 
     const totalRuns = event.runs + (event.extras?.runs || 0);
     inning.score += totalRuns;
@@ -901,15 +1028,46 @@ async function recomputeSummary(matchId, match) {
         bEntry.isOut = true;
         bEntry.dismissalType = event.wicket?.type;
       }
+      const nextBatsman = getNextAvailableBatsman(seedBattingOrders[inningKey], inning, activeState);
+      if (activeState.striker?.toString() === outId) activeState.striker = nextBatsman || null;
+      if (activeState.nonStriker?.toString() === outId) activeState.nonStriker = nextBatsman || null;
     }
 
     inning.overs = Math.floor(inning.balls / 6) + (inning.balls % 6) / 10;
     const overs = inning.balls / 6;
     inning.runRate = overs > 0 ? parseFloat((inning.score / overs).toFixed(2)) : 0;
+
+    if (event.eventType === 'normal' && (event.runs || 0) % 2 !== 0) {
+      const temp = activeState.striker;
+      activeState.striker = activeState.nonStriker;
+      activeState.nonStriker = temp;
+    }
+    if (event.eventType === 'normal' && inning.balls > 0 && inning.balls % 6 === 0) {
+      const temp = activeState.striker;
+      activeState.striker = activeState.nonStriker;
+      activeState.nonStriker = temp;
+    }
   }
 
+  const currentInningKey = getInningKey(currentInning);
+  const currentInningSummary = summary.innings[currentInningKey];
+  const fallbackSeedOrder = seedBattingOrders[currentInningKey].filter(Boolean);
+  const activeState = activeByInning[currentInningKey] || {
+    striker: fallbackSeedOrder[0] || null,
+    nonStriker: fallbackSeedOrder[1] || null,
+  };
+  summary.currentBatsmen = {
+    striker: buildCurrentBatsmanFromOrder(currentInningSummary, activeState.striker),
+    nonStriker: buildCurrentBatsmanFromOrder(currentInningSummary, activeState.nonStriker),
+  };
+  summary.currentBowler = buildCurrentBowlerFromFigures(
+    currentInningSummary,
+    lastBowlerByInning[currentInningKey] || (currentInningKey === startingCurrentInningKey ? startingCurrentBowler : null)
+  );
   summary.currentInning = currentInning;
   summary.lastEvent = events.length > 0 ? events[events.length - 1]._id : null;
+  summary.markModified('currentBatsmen');
+  summary.markModified('currentBowler');
   await summary.save();
 
   return summary;
@@ -1080,7 +1238,7 @@ const getMatchEvents = async (matchId) => {
     .sort({ timestamp: -1 })
     .populate('batsmanId', 'name')
     .populate('bowlerId', 'name')
-    .populate('outPlayerId', 'name');
+    .populate('wicket.playerId', 'name');
   return events;
 };
 
@@ -1106,6 +1264,7 @@ module.exports = {
   undoLastEvent,
   switchInnings,
   setActivePlayers,
+  addSubstitute,
   getMatchSummary,
   getScorecard,
   getMatchEvents,

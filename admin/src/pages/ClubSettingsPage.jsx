@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { appendImageField } from "@/utils/imageUtils";
+
 import { useAppContext } from "@/hooks/useAppContext";
 import clubService from "@/services/clubService";
 import ImageUpload from "@/components/ImageUpload";
@@ -48,13 +50,8 @@ export default function ClubSettingsPage() {
     try {
       const formData = new FormData();
       formData.append("themeColor", color);
-      if (logo instanceof File) formData.append("logo", logo);
-      else if (logo === null) formData.append("logo", ""); // empty string for removal
-      else if (logo) formData.append("logo", logo);
-
-      if (banner instanceof File) formData.append("bannerUrl", banner);
-      else if (banner === null) formData.append("bannerUrl", "");
-      else if (banner) formData.append("bannerUrl", banner);
+      appendImageField(formData, "logo", logo);
+      appendImageField(formData, "bannerUrl", banner);
 
       await clubService.update(clubId, formData);
       await clubService.updateTheme(clubId, { primaryColor, secondaryColor });

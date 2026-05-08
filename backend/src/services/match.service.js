@@ -33,7 +33,11 @@ const getMatchById = async (id) => {
     .populate('toss.wonBy', 'name')
     .populate('battingTeam', 'name')
     .populate('bowlingTeam', 'name')
-    .populate('result.winner', 'name');
+    .populate('result.winner', 'name')
+    .populate('squadA.playingXI', 'name')
+    .populate('squadA.substitutes', 'name')
+    .populate('squadB.playingXI', 'name')
+    .populate('squadB.substitutes', 'name');
   if (!match) throw ApiError.notFound('Match not found');
   return match;
 };

@@ -20,7 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Calendar, Plus, MoreHorizontal, Pencil, Trash2, Loader2, Search, Shield,
   GitBranch, Activity, Trophy, Swords, Eye, Link2,
-  TableProperties, Network, KanbanSquare, Clock
+  TableProperties, Network, KanbanSquare, Clock, Users
 } from "lucide-react";
 import { cn, toLocalISOString } from "@/lib/utils";
 import BracketTree from "@/components/bracket/BracketTree";
@@ -28,6 +28,7 @@ import ProgressionView from "@/components/bracket/ProgressionView";
 import BracketBuilder from "@/components/bracket/BracketBuilder";
 import MatchDetailDialog from "@/components/bracket/MatchDetailDialog";
 import LeagueDashboard from "@/components/league/LeagueDashboard";
+import SquadSelectionDialog from "@/components/bracket/SquadSelectionDialog";
 import LeagueTimeline from "@/components/league/LeagueTimeline";
 
 const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.05 } } };
@@ -58,6 +59,8 @@ export default function MatchSchedulingPage() {
   const [showDelete, setShowDelete] = useState(false);
   const [showMatchDetail, setShowMatchDetail] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState(null);
+  const [showSquadSelection, setShowSquadSelection] = useState(false);
+  const [matchForSquad, setMatchForSquad] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
   const [form, setForm] = useState({
@@ -431,6 +434,7 @@ export default function MatchSchedulingPage() {
                                   <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
                                     <DropdownMenuItem onClick={() => openMatchDetail(m)}><Eye className="w-4 h-4 mr-2" /> View Details</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => { setMatchForSquad(m); setShowSquadSelection(true); }}><Users className="w-4 h-4 mr-2" /> Manage Squad</DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => openEdit(m)}><Pencil className="w-4 h-4 mr-2" /> Edit</DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => openDelete(m)} className="text-red-400"><Trash2 className="w-4 h-4 mr-2" /> Delete</DropdownMenuItem>
                                   </DropdownMenuContent>
@@ -605,6 +609,13 @@ export default function MatchSchedulingPage() {
         onSubmitResult={handleSubmitResult}
         onSchedule={handleScheduleFromDialog}
         submitting={submitting}
+      />
+
+      <SquadSelectionDialog 
+        match={matchForSquad} 
+        open={showSquadSelection} 
+        onClose={() => setShowSquadSelection(false)} 
+        onUpdated={() => fetchMatchData()}
       />
     </motion.div>
   );

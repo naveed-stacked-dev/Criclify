@@ -45,7 +45,7 @@ export default function Navbar() {
           ) : (
             <Link to="/" className="hover:text-white transition-colors">Home</Link>
           )}
-          <Link to="/leagues" className={`hover:text-white transition-colors ${location.pathname.startsWith('/leagues') ? 'text-white' : ''}`}>Leagues</Link>
+          <Link to="/clubs" className={`hover:text-white transition-colors ${location.pathname.startsWith('/clubs') ? 'text-white' : ''}`}>Clubs</Link>
         </div>
 
         {isAuthenticated ? (

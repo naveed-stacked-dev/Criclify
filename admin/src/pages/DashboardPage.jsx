@@ -81,7 +81,8 @@ export default function DashboardPage() {
           upcoming: (matches?.data || []).filter((m) => m.status === "scheduled" || m.status === "upcoming").length,
         });
 
-        setRecentMatches((matches?.data || []).slice(0, 5));
+        const completedOnly = (matches?.data || []).filter(m => m.status === 'completed');
+        setRecentMatches(completedOnly.slice(0, 5));
       } catch {
         // Errors handled by interceptor
       } finally {

@@ -1,23 +1,17 @@
 const clubService = require('../services/club.service');
-const s3Service = require('../services/s3Service');
 const ApiResponse = require('../utils/ApiResponse');
 const { buildPaginationResponse } = require('../middlewares/pagination.middleware');
+const { processUploadedFiles, safeDeleteImage, safeDeleteImages } = require('../utils/imageHandler');
+
+/** Field configs for club image uploads */
+const CLUB_IMAGE_FIELDS = [
+  { fieldname: 'logo',      folder: (id) => `clubs/${id}/logo`,   bodyKey: 'logo' },
+  { fieldname: 'bannerUrl', folder: (id) => `clubs/${id}/banner`, bodyKey: 'bannerUrl' },
+];
 
 const create = async (req, res, next) => {
   try {
-    if (req.files && Array.isArray(req.files)) {
-      for (const file of req.files) {
-        if (file.fieldname === 'logo') {
-          const key = s3Service.generateKey('clubs', file.originalname);
-          req.body.logo = await s3Service.uploadToS3(file.buffer, key, file.mimetype);
-        }
-        if (file.fieldname === 'bannerUrl') {
-          const key = s3Service.generateKey('clubs/banners', file.originalname);
-          req.body.bannerUrl = await s3Service.uploadToS3(file.buffer, key, file.mimetype);
-        }
-      }
-    }
-
+    await processUploadedFiles(req, CLUB_IMAGE_FIELDS);
     const club = await clubService.createClub(req.body, req.user._id);
     res.status(201).json(ApiResponse.created(club));
   } catch (error) {
@@ -55,20 +49,25 @@ const getById = async (req, res, next) => {
 
 const update = async (req, res, next) => {
   try {
-    if (req.files && Array.isArray(req.files)) {
-      for (const file of req.files) {
-        if (file.fieldname === 'logo') {
-          const key = s3Service.generateKey(`clubs/${req.params.id}`, file.originalname);
-          req.body.logo = await s3Service.uploadToS3(file.buffer, key, file.mimetype);
-        }
-        if (file.fieldname === 'bannerUrl') {
-          const key = s3Service.generateKey(`clubs/${req.params.id}/banners`, file.originalname);
-          req.body.bannerUrl = await s3Service.uploadToS3(file.buffer, key, file.mimetype);
-        }
-      }
-    }
+    // Fetch old club to get existing image URLs before overwriting
+    const existing = await clubService.getClubById(req.params.id);
+    const oldLogo = existing?.logo;
+    const oldBanner = existing?.bannerUrl;
+
+    await processUploadedFiles(req, CLUB_IMAGE_FIELDS);
 
     const club = await clubService.updateClub(req.params.id, req.body, req.user, req.userRole);
+
+    // Delete old S3 images if they were replaced or removed
+    const promises = [];
+    if (req.body.logo !== undefined && oldLogo && oldLogo !== club.logo) {
+      promises.push(safeDeleteImage(oldLogo));
+    }
+    if (req.body.bannerUrl !== undefined && oldBanner && oldBanner !== club.bannerUrl) {
+      promises.push(safeDeleteImage(oldBanner));
+    }
+    await Promise.allSettled(promises);
+
     res.json(ApiResponse.ok(club, 'Club updated'));
   } catch (error) {
     next(error);
@@ -77,7 +76,10 @@ const update = async (req, res, next) => {
 
 const remove = async (req, res, next) => {
   try {
+    const existing = await clubService.getClubById(req.params.id);
     await clubService.deleteClub(req.params.id, req.user, req.userRole);
+    // Clean up images from S3
+    await safeDeleteImages([existing?.logo, existing?.bannerUrl]);
     res.json(ApiResponse.ok(null, 'Club deactivated'));
   } catch (error) {
     next(error);

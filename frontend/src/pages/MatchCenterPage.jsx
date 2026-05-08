@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { io } from "socket.io-client";
 import publicService from "@/services/publicService";
-import { Radio, Loader2, Calendar, PlayCircle, Eye } from "lucide-react";
+import { Radio, Loader2, Calendar, PlayCircle, Eye, ArrowLeft } from "lucide-react";
 
 export default function MatchCenterPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [match, setMatch] = useState(null);
   const [scorecard, setScorecard] = useState(null);
   const [events, setEvents] = useState([]);
@@ -80,10 +81,22 @@ export default function MatchCenterPage() {
   }
 
   const isLive = match.status === "live";
-  const currentInnings = scorecard?.innings?.[scorecard.currentInnings - 1] || {};
+  const inningNumber = scorecard?.currentInning || 1;
+  const currentInnings = scorecard?.innings?.[inningNumber >= 2 ? "second" : "first"] || {};
 
   return (
     <div className="min-h-screen pt-24 pb-20 px-4 sm:px-6 max-w-4xl mx-auto">
+      {/* Back Button */}
+      <motion.button
+        initial={{ opacity: 0, x: -10 }}
+        animate={{ opacity: 1, x: 0 }}
+        onClick={() => navigate(-1)}
+        className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors mb-6 group cursor-pointer bg-white/5 hover:bg-white/10 px-4 py-2 rounded-xl border border-white/5"
+      >
+        <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+        Back
+      </motion.button>
+
       {/* Match Header Card */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -174,7 +187,7 @@ export default function MatchCenterPage() {
           ) : (
             <div className="border border-white/5 rounded-2xl bg-white/[0.02] overflow-hidden">
               <div className="p-4 border-b border-white/5">
-                <h3 className="font-semibold text-sm">Innings {scorecard.currentInnings || 1}</h3>
+                <h3 className="font-semibold text-sm">Innings {scorecard.currentInning || 1}</h3>
               </div>
               <div className="p-4 text-center text-gray-500 text-sm">
                 <p className="text-4xl font-black text-white mb-2">

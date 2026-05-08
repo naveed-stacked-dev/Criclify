@@ -7,8 +7,8 @@ const createClubSchema = Joi.object({
     .messages({ 'any.required': 'Club name is required', 'string.min': 'Club name must be at least 2 characters' }),
   slug: Joi.string().trim().lowercase().pattern(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).optional()
     .messages({ 'string.pattern.base': 'Slug must only contain lowercase letters, numbers, and hyphens' }),
-  logo: Joi.string().uri().allow(null, '').optional(),
-  bannerUrl: Joi.string().uri().allow(null, '').optional(),
+  logo: Joi.any().optional(),
+  bannerUrl: Joi.any().optional(),
   themeColor: Joi.string().pattern(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/).optional(),
   description: Joi.string().trim().max(500).allow('').optional(),
   settings: Joi.object({
@@ -24,8 +24,8 @@ const updateClubSchema = Joi.object({
   name: Joi.string().trim().min(2).max(100).optional(),
   slug: Joi.string().trim().lowercase().pattern(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).optional()
     .messages({ 'string.pattern.base': 'Slug must only contain lowercase letters, numbers, and hyphens' }),
-  logo: Joi.string().uri().allow(null, '').optional(),
-  bannerUrl: Joi.string().uri().allow(null, '').optional(),
+  logo: Joi.any().optional(),
+  bannerUrl: Joi.any().optional(),
   themeColor: Joi.string().pattern(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/).optional(),
   description: Joi.string().trim().max(500).allow('').optional(),
   isActive: Joi.boolean().optional(),

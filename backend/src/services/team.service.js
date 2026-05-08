@@ -19,10 +19,18 @@ const createTeam = async (data) => {
  */
 const getTeamsByClub = async (clubId, { skip, limit }) => {
   const [teams, total] = await Promise.all([
-    Team.find({ clubId }).sort({ name: 1 }).skip(skip).limit(limit),
+    Team.find({ clubId }).sort({ name: 1 }).skip(skip).limit(limit).lean(),
     Team.countDocuments({ clubId }),
   ]);
-  return { teams, total };
+
+  const teamsWithCount = await Promise.all(
+    teams.map(async (team) => {
+      const playerCount = await Player.countDocuments({ teamId: team._id });
+      return { ...team, playerCount };
+    })
+  );
+
+  return { teams: teamsWithCount, total };
 };
 
 /**

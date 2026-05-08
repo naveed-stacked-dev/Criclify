@@ -215,7 +215,11 @@ export default function MatchesPage() {
           <SelectTrigger className="w-full sm:w-[220px]"><SelectValue placeholder="Tournament" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Tournaments</SelectItem>
-            {tournaments.map((t) => <SelectItem key={t._id || t.id} value={t._id || t.id}>{t.name}</SelectItem>)}
+            {tournaments.map((t) => (
+              <SelectItem key={t._id || t.id} value={t._id || t.id}>
+                {t.name} <span className="text-muted-foreground ml-1">({t.type})</span>
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <div className="relative flex-1 max-w-sm">
@@ -254,7 +258,18 @@ export default function MatchesPage() {
                     >
                       <TableCell>
                         <div className="flex flex-col gap-1">
-                          <span className="font-semibold text-sm">{m.teamA?.name || "TBA"} <span className="text-muted-foreground font-normal mx-1">vs</span> {m.teamB?.name || "TBA"}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-sm">{m.teamA?.name || "TBD"} <span className="text-muted-foreground font-normal mx-1">vs</span> {m.teamB?.name || "TBD"}</span>
+                            {m.matchLabel && (
+                              <Badge 
+                                variant="outline" 
+                                className="text-[10px] uppercase tracking-wider font-bold px-1.5 py-0 h-4"
+                                style={{ borderColor: `${themeColor}40`, color: themeColor, backgroundColor: `${themeColor}15` }}
+                              >
+                                {m.matchLabel}
+                              </Badge>
+                            )}
+                          </div>
                           <span className="text-xs text-muted-foreground">{m.overs} Overs Match</span>
                         </div>
                       </TableCell>
@@ -331,7 +346,11 @@ export default function MatchesPage() {
                 <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">None</SelectItem>
-                  {tournaments.map((t) => <SelectItem key={t._id || t.id} value={t._id || t.id}>{t.name}</SelectItem>)}
+                  {tournaments.map((t) => (
+                    <SelectItem key={t._id || t.id} value={t._id || t.id}>
+                      {t.name} <span className="text-muted-foreground ml-1">({t.type})</span>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

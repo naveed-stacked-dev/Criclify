@@ -1,20 +1,17 @@
 const teamService = require('../services/team.service');
 const playerService = require('../services/player.service');
-const s3Service = require('../services/s3Service');
 const ApiResponse = require('../utils/ApiResponse');
 const { buildPaginationResponse } = require('../middlewares/pagination.middleware');
+const { processUploadedFiles, safeDeleteImage } = require('../utils/imageHandler');
+
+// Team logo field: multipart field 'logo' → stores in db as 'logo'
+const TEAM_IMAGE_FIELDS = [
+  { fieldname: 'logo', folder: (id) => `teams/${id}/logo`, bodyKey: 'logo' },
+];
 
 const create = async (req, res, next) => {
   try {
-    if (req.files && Array.isArray(req.files)) {
-      for (const file of req.files) {
-        if (file.fieldname === 'logo') {
-          const key = s3Service.generateKey('teams', file.originalname);
-          req.body.logoUrl = await s3Service.uploadToS3(file.buffer, key, file.mimetype);
-        }
-      }
-    }
-
+    await processUploadedFiles({ ...req, params: { id: 'uploads' } }, TEAM_IMAGE_FIELDS);
     const team = await teamService.createTeam(req.body);
     res.status(201).json(ApiResponse.created(team));
   } catch (error) {
@@ -46,16 +43,18 @@ const getById = async (req, res, next) => {
 
 const update = async (req, res, next) => {
   try {
-    if (req.files && Array.isArray(req.files)) {
-      for (const file of req.files) {
-        if (file.fieldname === 'logo') {
-          const key = s3Service.generateKey(`teams/${req.params.id}`, file.originalname);
-          req.body.logoUrl = await s3Service.uploadToS3(file.buffer, key, file.mimetype);
-        }
-      }
-    }
+    const existing = await teamService.getTeamById(req.params.id);
+    const oldLogo = existing?.logo;
+
+    await processUploadedFiles(req, TEAM_IMAGE_FIELDS);
 
     const team = await teamService.updateTeam(req.params.id, req.body);
+
+    // Delete old logo from S3 if replaced
+    if (req.body.logo !== undefined && oldLogo && oldLogo !== team.logo) {
+      await safeDeleteImage(oldLogo);
+    }
+
     res.json(ApiResponse.ok(team, 'Team updated'));
   } catch (error) {
     next(error);
@@ -64,7 +63,9 @@ const update = async (req, res, next) => {
 
 const remove = async (req, res, next) => {
   try {
+    const existing = await teamService.getTeamById(req.params.id);
     await teamService.deleteTeam(req.params.id);
+    if (existing?.logo) await safeDeleteImage(existing.logo);
     res.json(ApiResponse.ok(null, 'Team deleted'));
   } catch (error) {
     next(error);

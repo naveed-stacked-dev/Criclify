@@ -73,7 +73,7 @@ export default function MatchDetailDialog({ match, open, onClose, onSubmitResult
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
+        <div className="space-y-4 py-2 max-h-[65vh] overflow-y-auto pr-2">
           {/* Teams display */}
           <div className="flex items-center justify-center gap-6 py-3">
             <TeamCard team={teamA} isWinner={currentWinner && String(currentWinner) === String(teamA?._id)} />
@@ -114,9 +114,11 @@ export default function MatchDetailDialog({ match, open, onClose, onSubmitResult
           {!isCompleted && !isBye && teamA && teamB && (
             <div className="space-y-3 border-t border-border pt-3">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  {match.startTime ? 'Reschedule Match' : 'Schedule Match'}
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    {match.startTime ? 'Reschedule Match' : 'Schedule Match'}
+                  </p>
+                </div>
                 {match.startTime && !isRescheduling && (
                   <Button variant="ghost" size="sm" className="h-6 text-xs hover:text-indigo-300" style={{ color: themeColor }} onClick={() => setIsRescheduling(true)}>
                     Edit Schedule
@@ -193,6 +195,11 @@ export default function MatchDetailDialog({ match, open, onClose, onSubmitResult
           {!isBye && !isCompleted && teamA && teamB && (displayStatus === "upcoming" || displayStatus === "live") && (
             <div className="space-y-3 border-t border-border pt-3">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Set Winner</p>
+              {displayStatus === "upcoming" && (
+                <p className="text-[10px] font-medium text-rose-500 italic">
+                  * select winner after match completion only as this is not reversable action
+                </p>
+              )}
               <Select value={winnerId} onValueChange={setWinnerId}>
                 <SelectTrigger><SelectValue placeholder="Select winner" /></SelectTrigger>
                 <SelectContent>

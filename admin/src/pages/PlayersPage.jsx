@@ -4,6 +4,7 @@ import { useAppContext } from "@/hooks/useAppContext";
 import clubService from "@/services/clubService";
 import teamService from "@/services/teamService";
 import playerService from "@/services/playerService";
+import { appendImageField } from "@/utils/imageUtils";
 import { toast } from "sonner";
 import ImageUpload from "@/components/ImageUpload";
 import { Button } from "@/components/ui/button";
@@ -100,11 +101,7 @@ export default function PlayersPage() {
       if (form.phone) formData.append("phone", form.phone);
       if (form.battingStyle) formData.append("battingStyle", form.battingStyle);
       if (form.bowlingStyle) formData.append("bowlingStyle", form.bowlingStyle);
-      if (form.photoUrl instanceof File) {
-        formData.append("avatar", form.photoUrl);
-      } else if (form.photoUrl) {
-        formData.append("avatar", form.photoUrl);
-      }
+      appendImageField(formData, "avatar", form.photoUrl);
 
       await playerService.create(formData);
       toast.success("Player created");
@@ -131,11 +128,7 @@ export default function PlayersPage() {
       if (form.phone !== undefined) formData.append("phone", form.phone);
       if (form.battingStyle) formData.append("battingStyle", form.battingStyle);
       formData.append("bowlingStyle", form.bowlingStyle || "");
-      if (form.photoUrl instanceof File) {
-        formData.append("avatar", form.photoUrl);
-      } else if (form.photoUrl) {
-        formData.append("avatar", form.photoUrl);
-      }
+      appendImageField(formData, "avatar", form.photoUrl);
 
       await playerService.update(selected._id || selected.id, formData);
       toast.success("Player updated");
@@ -172,7 +165,7 @@ export default function PlayersPage() {
       role: p.role || "batsman",
       jerseyNumber: p.jerseyNumber || "",
       phone: p.phone || "",
-      photoUrl: p.avatar || p.photoUrl || "",
+      photoUrl: p.avatar || "",
       team: p.teamId?._id || p.teamId || "none",
       battingStyle: p.battingStyle || "right-hand",
       bowlingStyle: p.bowlingStyle || "",
@@ -260,7 +253,7 @@ export default function PlayersPage() {
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold" style={{ backgroundColor: `${themeColor}20`, color: themeColor }}>
-                            {p.photoUrl ? <img src={p.photoUrl} alt="" className="w-9 h-9 rounded-full object-cover" /> : (p.name || "?")[0]}
+                            {p.avatar ? <img src={p.avatar} alt="" className="w-9 h-9 rounded-full object-cover" /> : (p.name || "?")[0]}
                           </div>
                           <div>
                             <p className="font-medium text-sm">{p.name}</p>
