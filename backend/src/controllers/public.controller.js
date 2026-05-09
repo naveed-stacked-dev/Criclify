@@ -226,12 +226,13 @@ const getPlayersByClub = async (req, res, next) => {
 
 const getPlayerById = async (req, res, next) => {
   try {
-    const player = await playerService.getPlayerById(req.params.id);
-    res.json(ApiResponse.ok(player));
+    const { player, stats } = await playerService.getPlayerById(req.params.id);
+    res.json(ApiResponse.ok({ player, stats }));
   } catch (error) {
     next(error);
   }
 };
+
 
 // ─── Analytics ───
 const getClubLeaderboard = async (req, res, next) => {

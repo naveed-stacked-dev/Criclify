@@ -21,10 +21,14 @@ const clubService = {
     apiClient.get(`/public/matches/recent/${clubId}`, { params: { limit } }),
   getLiveMatches: (clubId) =>
     apiClient.get(`/public/live-matches/${clubId}`),
+  getMatchById: (matchId) =>
+    apiClient.get(`/public/matches/${matchId}`),
   getMatchSummary: (matchId) =>
-    apiClient.get(`/public/match/${matchId}/summary`),
+    apiClient.get(`/public/matches/${matchId}/summary`),
   getMatchScorecard: (matchId) =>
-    apiClient.get(`/public/match/${matchId}/scorecard`),
+    apiClient.get(`/public/matches/${matchId}/scorecard`),
+  getMatchEvents: (matchId) =>
+    apiClient.get(`/public/matches/${matchId}/events`),
 
   // ─── Teams & Players ───
   getTeamsByClub: (clubId, params) =>

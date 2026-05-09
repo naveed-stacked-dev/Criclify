@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { Radio, ArrowRight } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 /**
  * LiveScoreWidget — Broadcast-quality live scoreboard.
@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
  */
 export default function LiveScoreWidget({ match, summary: liveSummary }) {
   const navigate = useNavigate();
+  const { slug } = useParams();
   const summary = liveSummary || match?.summary;
   if (!match || !summary) return null;
 
@@ -36,7 +37,7 @@ export default function LiveScoreWidget({ match, summary: liveSummary }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      onClick={() => navigate(`/matches/${match._id || match.id}`)}
+      onClick={() => navigate(`/clubs/${slug}/matches/${match._id || match.id}`)}
       className="relative overflow-hidden rounded-2xl cursor-pointer group transition-all duration-300 hover:scale-[1.01]"
       style={{
         background: "#ffffff",

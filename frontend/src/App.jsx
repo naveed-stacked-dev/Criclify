@@ -23,6 +23,8 @@ import ClubTeamsPage from "./club/pages/ClubTeamsPage";
 import ClubPlayersPage from "./club/pages/ClubPlayersPage";
 import ClubPostsPage from "./club/pages/ClubPostsPage";
 import ClubGalleryPage from "./club/pages/ClubGalleryPage";
+import ClubMatchDetailPage from "./club/pages/ClubMatchDetailPage";
+import ClubPlayerProfilePage from "./club/pages/ClubPlayerProfilePage";
 
 export default function App() {
   return (
@@ -67,6 +69,8 @@ export default function App() {
           <Route path="players" element={<ClubPlayersPage />} />
           <Route path="posts" element={<ClubPostsPage />} />
           <Route path="gallery" element={<ClubGalleryPage />} />
+          <Route path="matches/:matchId" element={<ClubMatchDetailPage />} />
+          <Route path="players/:playerId" element={<ClubPlayerProfilePage />} />
         </Route>
       </Routes>
     </ReactLenis>

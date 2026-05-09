@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useOutletContext, useSearchParams } from "react-router-dom";
+import { useOutletContext, useSearchParams, Link, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { UserCircle, Search, Users, ChevronDown } from "lucide-react";
 import clubService from "../services/clubService";
@@ -9,6 +9,7 @@ import clubService from "../services/clubService";
  */
 export default function ClubPlayersPage() {
   const { club } = useOutletContext();
+  const { slug } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const clubId = club?._id || club?.id;
 
@@ -123,8 +124,9 @@ export default function ClubPlayersPage() {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.03 }}
-              className="glass-card p-4 flex items-center gap-3"
+              whileHover={{ scale: 1.02 }}
             >
+              <Link to={`/clubs/${slug}/players/${player._id || player.id}`} className="glass-card p-4 flex items-center gap-3 block hover:shadow-md transition-all">
               {/* Avatar */}
               {player.photo || player.avatar ? (
                 <img
@@ -152,6 +154,7 @@ export default function ClubPlayersPage() {
                   <p className="text-[10px] text-gray-600 truncate mt-0.5">{player.teamId.name}</p>
                 )}
               </div>
+              </Link>
             </motion.div>
           ))}
         </div>

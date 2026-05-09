@@ -10,6 +10,7 @@ import ClubManagerDashboard from "@/pages/ClubManagerDashboard";
 import ClubsPage from "@/pages/ClubsPage";
 import TeamsPage from "@/pages/TeamsPage";
 import PlayersPage from "@/pages/PlayersPage";
+import PlayerProfilePage from "@/pages/PlayerProfilePage";
 import TournamentsPage from "@/pages/TournamentsPage";
 import MatchesPage from "@/pages/MatchesPage";
 import MatchSummaryPage from "@/pages/MatchSummaryPage";
@@ -80,6 +81,9 @@ export default function App() {
         } />
         <Route path="players" element={
           <ProtectedRoute allowedRoles={MANAGER_ROLES}><PlayersPage /></ProtectedRoute>
+        } />
+        <Route path="players/:playerId" element={
+          <ProtectedRoute allowedRoles={MANAGER_ROLES}><PlayerProfilePage /></ProtectedRoute>
         } />
         <Route path="matches" element={
           <ProtectedRoute allowedRoles={MANAGER_ROLES}><MatchesPage /></ProtectedRoute>

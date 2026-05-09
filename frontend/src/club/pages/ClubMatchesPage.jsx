@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useOutletContext, useSearchParams, useNavigate } from "react-router-dom";
+import { useOutletContext, useSearchParams, useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { CalendarDays, Trophy, Filter, ChevronDown } from "lucide-react";
 import clubService from "../services/clubService";
@@ -11,6 +11,7 @@ export default function ClubMatchesPage() {
   const { club, tournaments } = useOutletContext();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { slug } = useParams();
   const clubId = club?._id || club?.id;
 
   const [matches, setMatches] = useState([]);
@@ -152,7 +153,7 @@ export default function ClubMatchesPage() {
                 transition={{ delay: i * 0.03 }}
                 whileHover={{ scale: 1.01 }}
                 className="glass-card p-4 cursor-pointer hover:shadow-md transition-all"
-                onClick={() => navigate(`/matches/${match._id || match.id}`)}
+                onClick={() => navigate(`/clubs/${slug}/matches/${match._id || match.id}`)}
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[10px] truncate max-w-[200px]" style={{ color: "var(--club-text-muted)" }}>

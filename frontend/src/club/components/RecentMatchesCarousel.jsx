@@ -170,7 +170,7 @@
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Trophy, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import clubService from "../services/clubService";
 
 /**
@@ -333,6 +333,7 @@ export default function RecentMatchesCarousel({ clubId }) {
 
 function MatchCard({ match, index }) {
   const navigate = useNavigate();
+  const { slug } = useParams();
 
   const teamA = match.teamA || {};
   const teamB = match.teamB || {};
@@ -347,7 +348,7 @@ function MatchCard({ match, index }) {
       initial={{ opacity: 0, x: 30 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: index * 0.05 }}
-      onClick={() => navigate(`/matches/${match._id || match.id}`)}
+      onClick={() => navigate(`/clubs/${slug}/matches/${match._id || match.id}`)}
       className="glass-card min-w-[300px] max-w-[320px] p-4 relative flex-shrink-0 cursor-pointer hover:shadow-lg hover:border-white/20 hover:scale-[1.01] transition-all duration-300 overflow-hidden"
     >
       {/* Top Accent */}

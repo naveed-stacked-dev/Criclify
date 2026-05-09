@@ -12,6 +12,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from "recharts";
+import { Link } from "react-router-dom";
 
 const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } };
 const item = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } };
@@ -27,19 +28,34 @@ export default function SuperAdminDashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const allClubs = clubData?.data || clubData?.clubs || clubData || [];
-        const allMatches = matchData?.data || [];
+        const clubRes = await clubService.adminGetAll();
+        const matchRes = await matchService.getAll();
 
-        setClubs(Array.isArray(allClubs) ? allClubs : []);
+        const allClubs = clubRes.data?.data || clubRes.data?.clubs || clubRes.data || [];
+        const allMatches = matchRes.data?.data || matchRes.data || [];
+
         const completedOnly = allMatches.filter(m => m.status === 'completed');
         setRecentMatches(completedOnly.slice(0, 8));
 
         const live = allMatches.filter((m) => m.status === "live").length;
         const upcoming = allMatches.filter((m) => m.status === "scheduled" || m.status === "upcoming").length;
 
+        // Calculate match count per club
+        const clubsWithMatches = (Array.isArray(allClubs) ? allClubs : []).map(club => {
+          const clubIdStr = club._id || club.id;
+          const matchCount = allMatches.filter(m => {
+            if (!m.clubId) return false;
+            const matchClubIdStr = typeof m.clubId === 'object' ? (m.clubId._id || m.clubId.id) : m.clubId;
+            return matchClubIdStr === clubIdStr;
+          }).length;
+          return { ...club, matchCount };
+        });
+
+        setClubs(clubsWithMatches);
+
         setStats({
           totalClubs: Array.isArray(allClubs) ? allClubs.length : 0,
-          totalMatches: matchData?.total || allMatches.length || 0,
+          totalMatches: allMatches.length || 0,
           liveMatches: live,
           upcoming,
         });
@@ -62,13 +78,15 @@ export default function SuperAdminDashboard() {
   // Club distribution chart data
   const clubChartData = clubs.slice(0, 6).map((l) => ({
     name: l.name?.slice(0, 12) || "Club",
-    teams: l.teamCount || 0,
+    matches: l.matchCount || 0,
+    color: l.themeColor || "#7c3aed",
   }));
 
   // Club pie data
   const clubPieData = clubs.slice(0, 5).map((l) => ({
     name: l.name?.slice(0, 12) || "Club",
-    value: l.matchCount || l.teamCount || 1,
+    value: l.matchCount > 0 ? l.matchCount : 1, // At least 1 to show a slice if empty
+    color: l.themeColor || "#7c3aed",
   }));
 
   return (
@@ -129,12 +147,25 @@ export default function SuperAdminDashboard() {
               <div className="h-[260px]">
                 {clubChartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={clubChartData}>
+                    <BarChart data={clubChartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                      <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                      <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+                      <XAxis 
+                        dataKey="name" 
+                        tick={{ fontSize: 11 }} 
+                        stroke="hsl(var(--muted-foreground))" 
+                        label={{ value: 'Clubs', position: 'insideBottom', offset: -15, fill: 'hsl(var(--muted-foreground))', fontSize: 12, fontWeight: 500 }} 
+                      />
+                      <YAxis 
+                        tick={{ fontSize: 12 }} 
+                        stroke="hsl(var(--muted-foreground))" 
+                        label={{ value: 'Total Matches', angle: -90, position: 'insideLeft', offset: -5, fill: 'hsl(var(--muted-foreground))', fontSize: 12, fontWeight: 500 }} 
+                      />
                       <Tooltip contentStyle={{ backgroundColor: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }} />
-                      <Bar dataKey="teams" fill="oklch(0.55 0.22 264)" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="matches" radius={[4, 4, 0, 0]}>
+                        {clubChartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
@@ -159,10 +190,18 @@ export default function SuperAdminDashboard() {
               <div className="h-[260px]">
                 {clubPieData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={clubPieData} cx="50%" cy="50%" outerRadius={90} dataKey="value" label={({ name }) => name}>
-                        {clubPieData.map((_, index) => (
-                          <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                    <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                      <Pie 
+                        data={clubPieData} 
+                        cx="50%" 
+                        cy="50%" 
+                        outerRadius={80} 
+                        dataKey="value" 
+                        label={({ name, value }) => `${name} (${value})`}
+                        labelLine={true}
+                      >
+                        {clubPieData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
                       <Tooltip contentStyle={{ backgroundColor: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }} />
@@ -199,8 +238,9 @@ export default function SuperAdminDashboard() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {clubs.map((club) => (
-              <Card key={club._id || club.id} className="overflow-hidden hover:shadow-lg transition-shadow group">
-                <CardContent className="p-5">
+              <Link key={club._id || club.id} to={`/clubs/${club._id || club.id}`} className="block h-full">
+                <Card className="overflow-hidden hover:shadow-lg transition-all hover:-translate-y-1 group h-full">
+                  <CardContent className="p-5">
                   <div className="flex items-start gap-3">
                     <div
                       className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
@@ -230,6 +270,7 @@ export default function SuperAdminDashboard() {
                   </div>
                 </CardContent>
               </Card>
+            </Link>
             ))}
           </div>
         )}
@@ -254,14 +295,16 @@ export default function SuperAdminDashboard() {
             ) : (
               <div className="space-y-2">
                 {recentMatches.map((match) => (
-                  <div key={match._id || match.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors">
-                    <div className="text-sm font-medium text-foreground">
-                      {match.teamA?.name || "Team A"} vs {match.teamB?.name || "Team B"}
+                  <Link key={match._id || match.id} to={`/match/${match._id || match.id}/match-summary`} className="block">
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors cursor-pointer group">
+                      <div className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+                        {match.teamA?.name || "Team A"} vs {match.teamB?.name || "Team B"}
+                      </div>
+                      <Badge variant={match.status === "live" ? "destructive" : match.status === "completed" ? "success" : "secondary"}>
+                        {match.status || "scheduled"}
+                      </Badge>
                     </div>
-                    <Badge variant={match.status === "live" ? "destructive" : match.status === "completed" ? "success" : "secondary"}>
-                      {match.status || "scheduled"}
-                    </Badge>
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}

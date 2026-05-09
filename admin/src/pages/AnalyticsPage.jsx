@@ -52,21 +52,19 @@ export default function AnalyticsPage() {
   }, [selectedClub]);
 
   // Transform data for charts
-  const topRunScorers = leaderboard?.topBatsmen?.slice(0, 5).map(p => ({
-    name: p.player?.name || "Unknown",
-    runs: p.totalRuns || 0
-  })) || [
-    { name: "Virat K.", runs: 450 }, { name: "Babar A.", runs: 380 }, { name: "Steve S.", runs: 320 },
-    { name: "Joe R.", runs: 290 }, { name: "Kane W.", runs: 250 }
-  ];
+  const topRunScorers = leaderboard?.topScorers?.length > 0 
+    ? leaderboard.topScorers.slice(0, 5).map(p => ({
+        name: p.player?.name || "Unknown",
+        runs: p.totalRuns || 0
+      })) 
+    : [];
 
-  const topWicketTakers = leaderboard?.topBowlers?.slice(0, 5).map(p => ({
-    name: p.player?.name || "Unknown",
-    wickets: p.totalWickets || 0
-  })) || [
-    { name: "Jasprit B.", wickets: 18 }, { name: "Shaheen A.", wickets: 16 }, { name: "Pat C.", wickets: 14 },
-    { name: "Rashid K.", wickets: 13 }, { name: "Kagiso R.", wickets: 11 }
-  ];
+  const topWicketTakers = leaderboard?.topWicketTakers?.length > 0
+    ? leaderboard.topWicketTakers.slice(0, 5).map(p => ({
+        name: p.player?.name || "Unknown",
+        wickets: p.totalWickets || 0
+      }))
+    : [];
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
@@ -111,21 +109,28 @@ export default function AnalyticsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-[250px] w-full mt-4">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={topRunScorers} layout="vertical" margin={{ top: 0, right: 0, left: 20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="hsl(var(--border))" />
-                      <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                      <YAxis dataKey="name" type="category" stroke="hsl(var(--muted-foreground))" fontSize={12} width={60} />
-                      <Tooltip cursor={{ fill: "hsl(var(--muted))" }} contentStyle={{ backgroundColor: "hsl(var(--popover))", borderRadius: "8px", border: "1px solid hsl(var(--border))" }} />
-                      <Bar dataKey="runs" radius={[0, 4, 4, 0]}>
-                        {topRunScorers.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill="oklch(0.6 0.15 250)" />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+                {topRunScorers.length === 0 ? (
+                  <div className="h-[250px] w-full mt-4 flex flex-col items-center justify-center text-muted-foreground bg-secondary/10 rounded-lg border border-dashed border-border/50">
+                    <TrendingUp className="w-8 h-8 opacity-20 mb-2" />
+                    <p className="text-sm">No run data available yet</p>
+                  </div>
+                ) : (
+                  <div className="h-[250px] w-full mt-4">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={topRunScorers} layout="vertical" margin={{ top: 0, right: 0, left: 20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="hsl(var(--border))" />
+                        <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                        <YAxis dataKey="name" type="category" stroke="hsl(var(--muted-foreground))" fontSize={12} width={60} />
+                        <Tooltip cursor={{ fill: "hsl(var(--muted))" }} contentStyle={{ backgroundColor: "hsl(var(--popover))", borderRadius: "8px", border: "1px solid hsl(var(--border))" }} />
+                        <Bar dataKey="runs" radius={[0, 4, 4, 0]}>
+                          {topRunScorers.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill="oklch(0.6 0.15 250)" />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </motion.div>
@@ -139,21 +144,28 @@ export default function AnalyticsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-[250px] w-full mt-4">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={topWicketTakers} layout="vertical" margin={{ top: 0, right: 0, left: 20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="hsl(var(--border))" />
-                      <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                      <YAxis dataKey="name" type="category" stroke="hsl(var(--muted-foreground))" fontSize={12} width={60} />
-                      <Tooltip cursor={{ fill: "hsl(var(--muted))" }} contentStyle={{ backgroundColor: "hsl(var(--popover))", borderRadius: "8px", border: "1px solid hsl(var(--border))" }} />
-                      <Bar dataKey="wickets" radius={[0, 4, 4, 0]}>
-                        {topWicketTakers.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill="oklch(0.6 0.2 20)" />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+                {topWicketTakers.length === 0 ? (
+                  <div className="h-[250px] w-full mt-4 flex flex-col items-center justify-center text-muted-foreground bg-secondary/10 rounded-lg border border-dashed border-border/50">
+                    <Activity className="w-8 h-8 opacity-20 mb-2" />
+                    <p className="text-sm">No bowling data available yet</p>
+                  </div>
+                ) : (
+                  <div className="h-[250px] w-full mt-4">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={topWicketTakers} layout="vertical" margin={{ top: 0, right: 0, left: 20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="hsl(var(--border))" />
+                        <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                        <YAxis dataKey="name" type="category" stroke="hsl(var(--muted-foreground))" fontSize={12} width={60} />
+                        <Tooltip cursor={{ fill: "hsl(var(--muted))" }} contentStyle={{ backgroundColor: "hsl(var(--popover))", borderRadius: "8px", border: "1px solid hsl(var(--border))" }} />
+                        <Bar dataKey="wickets" radius={[0, 4, 4, 0]}>
+                          {topWicketTakers.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill="oklch(0.6 0.2 20)" />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </motion.div>

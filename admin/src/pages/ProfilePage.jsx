@@ -20,7 +20,7 @@ import { User, Lock, Mail, Shield, Building, Clock, Loader2 } from "lucide-react
 import { PasswordInput } from "@/components/ui/password-input";
 
 export default function ProfilePage() {
-  const { user, updateUser, isClubManager, isMatchManager, clubName } = useAppContext();
+  const { user, updateUser, isClubManager, isMatchManager, clubName, themeColor } = useAppContext();
   const [loading, setLoading] = useState(false);
   const [profileData, setProfileData] = useState({
     name: user?.name || "",
@@ -155,7 +155,7 @@ export default function ProfilePage() {
                         onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
                         required
                         placeholder="John Doe"
-                        disabled={isMatchManager}
+                        disabled={isMatchManager || isClubManager}
                       />
                     </div>
                   </div>
@@ -171,12 +171,12 @@ export default function ProfilePage() {
                         onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
                         required
                         placeholder="john@example.com"
-                        disabled={isMatchManager}
+                        disabled={isMatchManager || isClubManager}
                       />
                     </div>
                   </div>
                 </div>
-                {!isMatchManager && (
+                {!isMatchManager && !isClubManager && (
                   <div className="flex justify-end pt-4 border-t border-border/50">
                     <Button 
                       type="submit" 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Radio, CheckCircle2, Clock, Trophy, ExternalLink } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import clubService from "../services/clubService";
 
 /**
@@ -115,6 +115,7 @@ export default function LiveMatchesPanel({ clubId, liveMatches = [], liveSummari
 /* ─── Live Match Card ─── */
 function LiveMatchCard({ match, summary }) {
   const navigate = useNavigate();
+  const { slug } = useParams();
   const teamA = match.teamA || {};
   const teamB = match.teamB || {};
 
@@ -126,7 +127,7 @@ function LiveMatchCard({ match, summary }) {
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      onClick={() => navigate(`/matches/${match._id || match.id}`)}
+      onClick={() => navigate(`/clubs/${slug}/matches/${match._id || match.id}`)}
       className="glass-card p-4 space-y-3 relative overflow-hidden cursor-pointer hover:shadow-lg transition-shadow duration-300"
     >
       {/* Glow accent */}

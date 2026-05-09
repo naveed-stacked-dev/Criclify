@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAppContext } from "@/hooks/useAppContext";
 import clubService from "@/services/clubService";
@@ -251,15 +252,15 @@ export default function PlayersPage() {
                   {filtered.map((p) => (
                     <TableRow key={p._id || p.id}>
                       <TableCell>
-                        <div className="flex items-center gap-3">
+                        <Link to={`/players/${p._id || p.id}`} className="flex items-center gap-3 hover:underline">
                           <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold" style={{ backgroundColor: `${themeColor}20`, color: themeColor }}>
                             {p.avatar ? <img src={p.avatar} alt="" className="w-9 h-9 rounded-full object-cover" /> : (p.name || "?")[0]}
                           </div>
                           <div>
-                            <p className="font-medium text-sm">{p.name}</p>
-                            {p.phone && <p className="text-xs text-muted-foreground">{p.phone}</p>}
+                            <p className="font-medium text-sm" style={{ color: themeColor }}>{p.name}</p>
+                            {p.phone && <p className="text-xs text-muted-foreground no-underline">{p.phone}</p>}
                           </div>
-                        </div>
+                        </Link>
                       </TableCell>
                       <TableCell>
                         <Badge className={`capitalize text-xs ${getRoleBadge(p.role)}`}>{p.role || "—"}</Badge>

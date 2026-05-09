@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAppContext } from "@/hooks/useAppContext";
+import clubService from "@/services/clubService";
 import contentService from "@/services/contentService";
 import tournamentService from "@/services/tournamentService";
 import matchService from "@/services/matchService";
@@ -20,7 +21,10 @@ import { Plus, Trash2, Loader2, Images, X } from "lucide-react";
 import ImageUpload from "@/components/ImageUpload";
 
 export default function GalleryPage() {
-  const { clubId, themeColor } = useAppContext();
+  const { user, clubId: contextClubId, themeColor } = useAppContext();
+  const [clubs, setClubs] = useState([]);
+  const [selectedClub, setSelectedClub] = useState(null);
+  const [clubLoading, setClubLoading] = useState(true);
   const [gallery, setGallery] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -42,11 +46,28 @@ export default function GalleryPage() {
   const [lightbox, setLightbox] = useState(null);
 
   useEffect(() => {
-    if (clubId) {
+    const fetch = async () => {
+      try {
+        if (user?.role === "superAdmin" || user?.role === "superadmin") {
+          const res = await clubService.adminGetAll();
+          const data = res.data?.data || res.data?.clubs || res.data || [];
+          setClubs(Array.isArray(data) ? data : []);
+          if (data.length > 0) setSelectedClub(data[0]._id || data[0].id);
+        } else {
+          if (contextClubId) setSelectedClub(contextClubId);
+        }
+      } catch { }
+      finally { setClubLoading(false); }
+    };
+    fetch();
+  }, [user, contextClubId]);
+
+  useEffect(() => {
+    if (selectedClub) {
       fetchGallery();
       fetchTournaments();
     }
-  }, [clubId]);
+  }, [selectedClub]);
 
   useEffect(() => {
     fetchGallery();
@@ -71,8 +92,9 @@ export default function GalleryPage() {
   }, [filterTournament]);
 
   const fetchTournaments = async () => {
+    if (!selectedClub) return;
     try {
-      const res = await tournamentService.getByClub(clubId);
+      const res = await tournamentService.getByClub(selectedClub);
       setTournaments(res.data?.data || []);
     } catch {}
   };
@@ -85,11 +107,13 @@ export default function GalleryPage() {
   };
 
   const fetchGallery = async () => {
+    if (!selectedClub) return;
+    setLoading(true);
     try {
       const params = {};
       if (filterTournament) params.tournamentId = filterTournament;
       if (filterMatch) params.matchId = filterMatch;
-      const res = await contentService.getGallery(clubId, params);
+      const res = await contentService.getGallery(selectedClub, params);
       setGallery(res.data?.data || []);
     } catch {
       toast.error("Failed to load gallery");
@@ -153,6 +177,30 @@ export default function GalleryPage() {
         </p>
       </div>
 
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        {(user?.role === "superAdmin" || user?.role === "superadmin") && (
+          <div className="w-full max-w-xs">
+            <select
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              value={selectedClub || ""}
+              onChange={(e) => setSelectedClub(e.target.value)}
+            >
+              <option value="" disabled>Select a club</option>
+              {clubs.map((l) => (
+                <option key={l._id || l.id} value={l._id || l.id}>{l.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
+      {!selectedClub && !clubLoading ? (
+        <div className="text-center py-16 text-muted-foreground">
+          <Images className="w-12 h-12 mx-auto mb-3 opacity-20" />
+          <p className="font-medium">Select a club to manage gallery</p>
+        </div>
+      ) : (
+        <>
       {/* Upload Form */}
       <Card>
         <CardContent className="p-6">
@@ -320,6 +368,8 @@ export default function GalleryPage() {
             onClick={(e) => e.stopPropagation()}
           />
         </div>
+      )}
+        </>
       )}
     </div>
   );
