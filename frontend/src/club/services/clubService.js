@@ -32,6 +32,11 @@ const clubService = {
   getPlayersByClub: (clubId, params) =>
     apiClient.get(`/public/players/club/${clubId}`, { params }),
   getPlayer: (id) => apiClient.get(`/public/players/${id}`),
+
+  // ─── Content ───
+  getSponsors: (clubId) => apiClient.get(`/content/${clubId}/sponsors`),
+  getPosts: (clubId, params) => apiClient.get(`/content/${clubId}/posts`, { params }),
+  getGallery: (clubId, params) => apiClient.get(`/content/${clubId}/gallery`, { params }),
 };
 
 export default clubService;

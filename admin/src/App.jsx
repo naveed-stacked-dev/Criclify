@@ -19,6 +19,9 @@ import AnalyticsPage from "@/pages/AnalyticsPage";
 import ClubDetailsPage from "@/pages/ClubDetailsPage";
 import ClubSettingsPage from "@/pages/ClubSettingsPage";
 import ProfilePage from "@/pages/ProfilePage";
+import SponsorsPage from "@/pages/SponsorsPage";
+import GalleryPage from "@/pages/GalleryPage";
+import PostsPage from "@/pages/PostsPage";
 
 const ALL_ADMIN_ROLES = ["superAdmin", "superadmin", "clubManager", "club_manager", "matchManager", "match_manager"];
 const MANAGER_ROLES = ["superAdmin", "superadmin", "clubManager", "club_manager"];
@@ -97,6 +100,17 @@ export default function App() {
         } />
         <Route path="scoring" element={
           <ProtectedRoute allowedRoles={SCORER_ROLES}><LiveScoringPage /></ProtectedRoute>
+        } />
+
+        {/* Content Management */}
+        <Route path="sponsors" element={
+          <ProtectedRoute allowedRoles={MANAGER_ROLES}><SponsorsPage /></ProtectedRoute>
+        } />
+        <Route path="gallery" element={
+          <ProtectedRoute allowedRoles={MANAGER_ROLES}><GalleryPage /></ProtectedRoute>
+        } />
+        <Route path="posts" element={
+          <ProtectedRoute allowedRoles={MANAGER_ROLES}><PostsPage /></ProtectedRoute>
         } />
 
         {/* Club Settings (ClubManager) */}

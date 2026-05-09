@@ -17,14 +17,14 @@ export default function ClubHero({ club, tournaments = [] }) {
   const teamCount = uniqueTeamIds.size;
 
   return (
-    <div className="relative overflow-hidden" style={{ height: "20vh", minHeight: "160px" }}>
-      {/* Background Image with blur */}
+    <div className="relative overflow-hidden w-full bg-black" style={{ aspectRatio: "1920/350", minHeight: "250px" }}>
+      {/* Background Image - Perfectly matches the 1920:350 aspect ratio */}
       {bannerUrl ? (
         <img
           src={bannerUrl}
           alt=""
           className="absolute inset-0 w-full h-full object-cover"
-          style={{ filter: "blur(4px) brightness(0.35)", transform: "scale(1.05)" }}
+          style={{ filter: "none" }}
         />
       ) : (
         <div
@@ -35,24 +35,19 @@ export default function ClubHero({ club, tournaments = [] }) {
         />
       )}
 
-      {/* Dark gradient overlays */}
-      <div className="absolute inset-0 bg-gradient-to-t from-[#0a0e1a] via-[#0a0e1a]/60 to-transparent" />
-      <div className="absolute inset-0 bg-gradient-to-r from-[#0a0e1a]/80 via-transparent to-transparent" />
-
       {/* Content */}
-      <div className="relative z-10 h-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 flex items-end pb-5">
+      <div className="absolute inset-0 z-10 max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 flex items-end pb-5 w-full">
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5 }}
-          className="flex items-center gap-4 sm:gap-6"
+          className="flex items-center gap-4 sm:gap-6 bg-black/30 backdrop-blur-sm p-3 pr-6 rounded-2xl border border-white/10"
         >
           {/* Club Logo */}
           <div
-            className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 flex-shrink-0 shadow-lg"
+            className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden flex-shrink-0 shadow-lg"
             style={{
-              borderColor: club?.theme?.primaryColor || "#1a73e8",
-              background: "rgba(255,255,255,0.05)",
+              background: "rgba(0,0,0,0.4)",
               backdropFilter: "blur(10px)",
             }}
           >
@@ -60,18 +55,18 @@ export default function ClubHero({ club, tournaments = [] }) {
               <img src={logoUrl} alt={club?.name} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
-                <Trophy className="w-8 h-8" style={{ color: club?.theme?.primaryColor || "#1a73e8" }} />
+                <Trophy className="w-8 h-8" style={{ color: "#ffffff" }} />
               </div>
             )}
           </div>
 
           {/* Club Info */}
           <div>
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-white tracking-tight leading-tight">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight leading-tight text-white drop-shadow-md">
               {club?.name}
             </h1>
             {club?.description && (
-              <p className="text-xs sm:text-sm text-gray-400 mt-1 max-w-md line-clamp-1">
+              <p className="text-xs sm:text-sm mt-1 max-w-md line-clamp-1 text-white/80 drop-shadow-sm">
                 {club.description}
               </p>
             )}
@@ -89,16 +84,16 @@ export default function ClubHero({ club, tournaments = [] }) {
             { icon: Swords, label: "Tournaments", value: tournamentCount || "–" },
             { icon: Users, label: "Teams", value: teamCount || "–" },
           ].map(({ icon: Icon, label, value }) => (
-            <div key={label} className="flex items-center gap-2 text-sm">
+            <div key={label} className="flex items-center gap-2 text-sm bg-black/30 backdrop-blur-sm p-2 rounded-xl border border-white/10">
               <div
                 className="w-9 h-9 rounded-xl flex items-center justify-center"
-                style={{ background: `${club?.theme?.primaryColor || "#1a73e8"}15` }}
+                style={{ background: `rgba(255,255,255,0.1)` }}
               >
-                <Icon className="w-4 h-4" style={{ color: club?.theme?.primaryColor || "#1a73e8" }} />
+                <Icon className="w-4 h-4 text-white" />
               </div>
               <div>
-                <p className="text-white font-bold text-sm leading-none">{value}</p>
-                <p className="text-[10px] text-gray-500">{label}</p>
+                <p className="font-bold text-sm leading-none text-white">{value}</p>
+                <p className="text-[10px] text-white/60">{label}</p>
               </div>
             </div>
           ))}

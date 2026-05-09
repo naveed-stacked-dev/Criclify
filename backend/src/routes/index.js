@@ -15,6 +15,7 @@ const publicRoutes = require('./public.routes');
 const settingsRoutes = require('./settings.routes');
 const pointsTableRoutes = require('./pointsTable.routes');
 const uploadRoutes = require('./upload.routes');
+const contentRoutes = require('./content.routes');
 
 router.use('/auth', authRoutes);
 router.use('/clubs', clubRoutes);
@@ -31,6 +32,7 @@ router.use('/public', publicRoutes);
 router.use('/settings', settingsRoutes);
 router.use('/points-table', pointsTableRoutes);
 router.use('/upload', uploadRoutes);
+router.use('/content', contentRoutes);
 
 // Health check
 router.get('/health', (req, res) => {

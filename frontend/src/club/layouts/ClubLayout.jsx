@@ -27,28 +27,23 @@ export default function ClubLayout() {
     root.style.setProperty("--club-primary", primary);
     root.style.setProperty("--club-secondary", secondary);
     root.style.setProperty("--club-accent", accent);
-    root.style.setProperty(
-      "--club-glow",
-      `0 0 20px ${primary}26, 0 0 40px ${primary}10`
-    );
 
     return () => {
       root.style.removeProperty("--club-primary");
       root.style.removeProperty("--club-secondary");
       root.style.removeProperty("--club-accent");
-      root.style.removeProperty("--club-glow");
     };
   }, [club]);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0a0e1a]">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "var(--club-bg)" }}>
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           className="flex flex-col items-center gap-4"
         >
-          <Loader2 className="w-10 h-10 animate-spin" style={{ color: "var(--club-primary)" }} />
+          <Loader2 className="w-10 h-10 animate-spin" style={{ color: "var(--club-accent)" }} />
           <p className="text-sm text-gray-400">Loading club...</p>
         </motion.div>
       </div>
@@ -57,7 +52,7 @@ export default function ClubLayout() {
 
   if (error || !club) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#0a0e1a] text-gray-400 px-4">
+      <div className="min-h-screen flex flex-col items-center justify-center text-gray-400 px-4" style={{ backgroundColor: "var(--club-bg)" }}>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -75,7 +70,7 @@ export default function ClubLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0e1a] text-white">
+    <div className="min-h-screen text-[#0f172a] transition-colors duration-500" style={{ backgroundColor: "var(--club-bg)" }}>
       <ClubHero club={club} tournaments={tournaments} />
       <ClubNavbar club={club} />
       <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20">

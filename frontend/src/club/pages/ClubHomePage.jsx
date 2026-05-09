@@ -4,7 +4,9 @@ import RecentMatchesCarousel from "../components/RecentMatchesCarousel";
 import TournamentOverview from "../components/TournamentOverview";
 import LiveMatchesPanel from "../components/LiveMatchesPanel";
 import LiveScoreWidget from "../components/LiveScoreWidget";
-import SponsorsPlaceholder from "../components/SponsorsPlaceholder";
+import SponsorsSlider from "../components/SponsorsSlider";
+import ClubPosts from "../components/ClubPosts";
+import ClubGallery from "../components/ClubGallery";
 import useLiveMatches from "../hooks/useLiveMatches";
 
 /**
@@ -12,9 +14,10 @@ import useLiveMatches from "../hooks/useLiveMatches";
  *
  * Layout:
  *   [Recent Matches Horizontal Scroll]
- *   [Left 60% - Tournament Overview] [Right 40% - Live/Results/Schedule]
  *   [Live Score Widgets (if live matches)]
- *   [Sponsors Placeholder]
+ *   [Left 60% - Tournament Overview] [Right 40% - Live/Results/Schedule]
+ *   [Sponsors Slider]
+ *   [Left 30% - Posts] [Right 70% - Gallery]
  */
 export default function ClubHomePage() {
   const { club, tournaments } = useOutletContext();
@@ -84,8 +87,26 @@ export default function ClubHomePage() {
         </motion.section>
       </div>
 
-      {/* ─── Sponsors ─── */}
-      <SponsorsPlaceholder />
+      {/* ─── Sponsors Slider ─── */}
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
+      >
+        <SponsorsSlider clubId={clubId} />
+      </motion.section>
+
+      {/* ─── Posts (30%) + Gallery (70%) ─── */}
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.6 }}
+      >
+        <div className="grid grid-cols-1 lg:grid-cols-[0.25fr_0.6fr] gap-50">
+          <ClubPosts clubId={clubId} />
+          <ClubGallery clubId={clubId} />
+        </div>
+      </motion.section>
     </div>
   );
 }

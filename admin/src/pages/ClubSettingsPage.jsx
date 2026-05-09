@@ -254,7 +254,7 @@ export default function ClubSettingsPage() {
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <ImageIcon className="w-4 h-4" style={{ color: themeColor }} /> Club Banner
             </CardTitle>
-            <CardDescription>Upload a cover banner for your club (recommended: 1200×400px)</CardDescription>
+            <CardDescription>Upload a cover banner for your club (recommended: 1920×350px for perfect desktop fit without vertical cropping)</CardDescription>
           </CardHeader>
           <CardContent>
             <ImageUpload
@@ -264,7 +264,7 @@ export default function ClubSettingsPage() {
                 else setBanner(fileOrUrl);
               }}
               label={null}
-              aspectHint="3:1"
+              aspectHint="1920:350 (approx. 6:1)"
               maxSizeMB={5}
             />
           </CardContent>

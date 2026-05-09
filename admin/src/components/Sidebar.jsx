@@ -17,6 +17,9 @@ import {
   ChevronRight,
   Palette,
   GitBranch,
+  Image as ImageIcon,
+  Images,
+  FileText
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -27,7 +30,10 @@ const NAV_ITEMS = [
   { path: "/players", label: "Players", icon: UserCircle, roles: ["superAdmin", "clubManager"] },
   { path: "/matches", label: "Matches", icon: Calendar, roles: ["superAdmin", "clubManager"] },
   { path: "/match-scheduling", label: "Match Scheduling", icon: GitBranch, roles: ["superAdmin", "clubManager"] },
-  { path: "/scoring", label: "Live Scoring", icon: Radio, roles: ["clubManager", "matchManager"] },
+  { path: "/scoring", label: "Live Scoring", icon: Radio, roles: ["matchManager"] },
+  { path: "/sponsors", label: "Sponsors", icon: ImageIcon, roles: ["superAdmin", "clubManager"] },
+  { path: "/gallery", label: "Gallery", icon: Images, roles: ["superAdmin", "clubManager"] },
+  { path: "/posts", label: "Posts", icon: FileText, roles: ["superAdmin", "clubManager"] },
   { path: "/analytics", label: "Analytics", icon: BarChart3, roles: ["superAdmin", "clubManager"] },
   { path: "/club-settings", label: "Club Settings", icon: Palette, roles: ["clubManager"] },
 ];

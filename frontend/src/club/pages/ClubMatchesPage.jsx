@@ -1,18 +1,40 @@
 import { useState, useEffect } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, useSearchParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { CalendarDays, Trophy, Filter } from "lucide-react";
+import { CalendarDays, Trophy, Filter, ChevronDown } from "lucide-react";
 import clubService from "../services/clubService";
 
 /**
  * ClubMatchesPage — Comprehensive match list with filters.
  */
 export default function ClubMatchesPage() {
-  const { club } = useOutletContext();
+  const { club, tournaments } = useOutletContext();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const clubId = club?._id || club?.id;
+
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
+
+  // Tournament filter state synced with URL
+  const [selectedTournamentId, setSelectedTournamentId] = useState(searchParams.get("tournamentId") || "all");
+
+  useEffect(() => {
+    const tid = searchParams.get("tournamentId") || "all";
+    setSelectedTournamentId(tid);
+  }, [searchParams]);
+
+  const handleTournamentChange = (tid) => {
+    setSelectedTournamentId(tid);
+    const newParams = new URLSearchParams(searchParams);
+    if (tid === "all") {
+      newParams.delete("tournamentId");
+    } else {
+      newParams.set("tournamentId", tid);
+    }
+    setSearchParams(newParams);
+  };
 
   useEffect(() => {
     if (!clubId) return;
@@ -21,13 +43,15 @@ export default function ClubMatchesPage() {
       try {
         const params = { limit: 50 };
         if (filter !== "all") params.status = filter;
+        if (selectedTournamentId !== "all") params.tournamentId = selectedTournamentId;
+
         const res = await clubService.getMatchesByClub(clubId, params);
         setMatches(res.data?.data || []);
       } catch { /* handled */ }
       finally { setLoading(false); }
     };
     fetch();
-  }, [clubId, filter]);
+  }, [clubId, filter, selectedTournamentId]);
 
   const filters = [
     { key: "all", label: "All" },
@@ -38,12 +62,38 @@ export default function ClubMatchesPage() {
 
   return (
     <div className="space-y-6">
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-        <h2 className="text-xl font-bold text-white flex items-center gap-2">
-          <CalendarDays className="w-5 h-5" style={{ color: "var(--club-primary)" }} />
-          Matches
-        </h2>
-        <p className="text-sm text-gray-500 mt-1">All matches for {club?.name}</p>
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold flex items-center gap-2" style={{ color: "var(--club-text-main)" }}>
+            <CalendarDays className="w-5 h-5" style={{ color: "var(--club-primary)" }} />
+            Matches
+          </h2>
+          <p className="text-sm mt-1" style={{ color: "var(--club-text-muted)" }}>All matches for {club?.name}</p>
+        </div>
+
+        {/* Tournament Filter Dropdown */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Filter className="w-3.5 h-3.5 text-gray-400" />
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Filter By Tournament:</span>
+          </div>
+          <div className="relative">
+            <select
+              value={selectedTournamentId}
+              onChange={(e) => handleTournamentChange(e.target.value)}
+              className="appearance-none bg-white border border-slate-200 rounded-xl px-4 py-2 pr-10 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/10 transition-all cursor-pointer shadow-sm hover:border-slate-300"
+              style={{ color: "var(--club-text-main)" }}
+            >
+              <option value="all">All Tournaments</option>
+              {tournaments?.map((t) => (
+                <option key={t._id} value={t._id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+          </div>
+        </div>
       </motion.div>
 
       {/* Filter Tabs */}
@@ -100,10 +150,12 @@ export default function ClubMatchesPage() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.03 }}
-                className="glass-card p-4"
+                whileHover={{ scale: 1.01 }}
+                className="glass-card p-4 cursor-pointer hover:shadow-md transition-all"
+                onClick={() => navigate(`/matches/${match._id || match.id}`)}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] text-gray-500 truncate max-w-[200px]">
+                  <span className="text-[10px] truncate max-w-[200px]" style={{ color: "var(--club-text-muted)" }}>
                     {match.tournamentId?.name || "Tournament"}
                     {match.matchLabel ? ` • ${match.matchLabel}` : ""}
                   </span>
@@ -136,7 +188,7 @@ export default function ClubMatchesPage() {
                 </div>
 
                 {match.result?.summary && (
-                  <p className="text-[11px] text-gray-400 mt-2 pt-2 border-t border-white/5 truncate">
+                  <p className="text-[11px] mt-2 pt-2 border-t border-white/5 truncate" style={{ color: "var(--club-text-muted)" }}>
                     {match.result.summary}
                   </p>
                 )}
@@ -159,7 +211,7 @@ function TeamInfo({ team, isWinner }) {
           {(team?.name || "?")[0]}
         </div>
       )}
-      <span className={`text-sm truncate ${isWinner ? "text-white font-bold" : "text-gray-400 font-medium"}`}>
+      <span className={`text-sm truncate ${isWinner ? "font-bold" : "font-medium"}`} style={{ color: isWinner ? "var(--club-text-main)" : "var(--club-text-muted)" }}>
         {team?.name || "TBA"}
       </span>
       {isWinner && <Trophy className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--club-primary)" }} />}

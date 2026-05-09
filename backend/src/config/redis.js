@@ -5,13 +5,14 @@
  */
 const Redis = require('ioredis');
 
-const REDIS_URL = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
+const REDIS_URL = process.env.REDIS_URL;
+// const REDIS_URL = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
 
 let publisher = null;
 let subscriber = null;
 let isConnected = false;
 
-const createClient = (label) => {
+const createClient = (label) => { 
   const client = new Redis(REDIS_URL, {
     maxRetriesPerRequest: 3,
     retryStrategy(times) {
@@ -21,6 +22,7 @@ const createClient = (label) => {
       }
       return Math.min(times * 200, 2000);
     },
+    // tls: {},
     lazyConnect: true,
   });
 

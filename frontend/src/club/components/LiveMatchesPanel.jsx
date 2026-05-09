@@ -132,7 +132,7 @@ function LiveMatchCard({ match, summary }) {
       {/* Glow accent */}
       <div
         className="absolute top-0 left-0 right-0 h-0.5"
-        style={{ background: "linear-gradient(90deg, #ef4444, var(--club-primary))" }}
+        style={{ backgroundColor: "var(--club-secondary)" }}
       />
 
       {/* Header */}

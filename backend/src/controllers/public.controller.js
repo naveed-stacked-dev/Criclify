@@ -126,6 +126,7 @@ const getMatchesByClub = async (req, res, next) => {
   try {
     const filter = { clubId: req.params.clubId };
     if (req.query.status) filter.status = req.query.status;
+    if (req.query.tournamentId) filter.tournamentId = req.query.tournamentId;
 
     const { matches, total } = await matchService.getMatches(filter, req.pagination);
     const pagination = buildPaginationResponse(total, req.pagination);
@@ -205,7 +206,7 @@ const getMatchEvents = async (req, res, next) => {
 // ─── Teams & Players ───
 const getTeamsByClub = async (req, res, next) => {
   try {
-    const { teams, total } = await teamService.getTeams({ clubId: req.params.clubId }, req.pagination);
+    const { teams, total } = await teamService.getTeamsByClub(req.params.clubId, req.pagination);
     const pagination = buildPaginationResponse(total, req.pagination);
     res.json(ApiResponse.paginated(teams, pagination));
   } catch (error) {
@@ -215,7 +216,7 @@ const getTeamsByClub = async (req, res, next) => {
 
 const getPlayersByClub = async (req, res, next) => {
   try {
-    const { players, total } = await playerService.getPlayers({ clubId: req.params.clubId }, req.pagination);
+    const { players, total } = await playerService.getPlayersByClub(req.params.clubId, req.pagination);
     const pagination = buildPaginationResponse(total, req.pagination);
     res.json(ApiResponse.paginated(players, pagination));
   } catch (error) {
