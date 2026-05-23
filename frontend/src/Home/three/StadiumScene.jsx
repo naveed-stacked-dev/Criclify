@@ -3,7 +3,7 @@ import { useGLTF, OrbitControls, ContactShadows } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
 
 function StadiumModel(props) {
-  const { scene } = useGLTF('/src/assets/3D-models/stadium.glb');
+  const { scene } = useGLTF('/3D-models/stadium.glb');
   const clonedScene = useMemo(() => scene.clone(), [scene]);
 
   return (
@@ -73,4 +73,4 @@ export default function StadiumScene() {
   );
 }
 
-useGLTF.preload('/src/assets/3D-models/stadium.glb');
+useGLTF.preload('/3D-models/stadium.glb');

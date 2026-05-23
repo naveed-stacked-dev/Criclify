@@ -7,7 +7,7 @@ import { useGLTF } from '@react-three/drei';
  * Catch animation driven entirely by parent via getCatchPlayerState().
  */
 export default function PlayerModel({ position, rotation, scale = 2.0, ...props }) {
-  const { scene } = useGLTF('/src/assets/3D-models/player.glb');
+  const { scene } = useGLTF('/3D-models/player.glb');
   const clonedScene = useMemo(() => scene.clone(), [scene]);
 
   return (
@@ -23,4 +23,4 @@ export default function PlayerModel({ position, rotation, scale = 2.0, ...props 
   );
 }
 
-useGLTF.preload('/src/assets/3D-models/player.glb');
+useGLTF.preload('/3D-models/player.glb');

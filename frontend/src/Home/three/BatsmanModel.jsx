@@ -7,7 +7,7 @@ import { useGLTF } from '@react-three/drei';
  * rotation.y driven entirely by parent via getBatsmanSwing().
  */
 export default function BatsmanModel({ position, rotation, scale = 2.5, ...props }) {
-  const { scene } = useGLTF('/src/assets/3D-models/Hero-batsman.glb');
+  const { scene } = useGLTF('/3D-models/Hero-batsman.glb');
   const clonedScene = useMemo(() => scene.clone(), [scene]);
 
   return (
@@ -23,4 +23,4 @@ export default function BatsmanModel({ position, rotation, scale = 2.5, ...props
   );
 }
 
-useGLTF.preload('/src/assets/3D-models/Hero-batsman.glb');
+useGLTF.preload('/3D-models/Hero-batsman.glb');

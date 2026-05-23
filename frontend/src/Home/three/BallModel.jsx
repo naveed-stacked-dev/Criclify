@@ -7,7 +7,7 @@ import { useGLTF } from '@react-three/drei';
  * All position/rotation is set by the parent via props.
  */
 export default function BallModel({ position, rotation, scale = 0.08, ...props }) {
-  const { scene } = useGLTF('/src/assets/3D-models/ball.glb');
+  const { scene } = useGLTF('/3D-models/ball.glb');
   const clonedScene = useMemo(() => scene.clone(), [scene]);
 
   return (
@@ -25,4 +25,4 @@ export default function BallModel({ position, rotation, scale = 0.08, ...props }
   );
 }
 
-useGLTF.preload('/src/assets/3D-models/ball.glb');
+useGLTF.preload('/3D-models/ball.glb');
