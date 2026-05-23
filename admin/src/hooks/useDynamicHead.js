@@ -9,18 +9,18 @@ export function useDynamicHead() {
   const { isSuperAdmin, isClubManager, isMatchManager, clubName, isAuthenticated } = useAppContext();
 
   useEffect(() => {
-    let title = "ClubArenaX Management";
+    let title = "CricArena Management";
     let description = "Professional cricket league management, scheduling, and live scoring platform.";
 
     if (isAuthenticated) {
       if (isSuperAdmin) {
-        title = "ClubArenaX | SuperAdmin Portal";
-        description = "Global administration and league management for ClubArenaX.";
+        title = "CricArena | SuperAdmin Portal";
+        description = "Global administration and league management for CricArena.";
       } else if (isClubManager) {
         title = `${clubName || "Club"} | Club Management`;
         description = `Manage your club (${clubName || "assigned club"}), tournaments, teams, and players.`;
       } else if (isMatchManager) {
-        title = "Match Scorer | ClubArenaX";
+        title = "Match Scorer | CricArena";
         description = "Live match scoring and scheduling management for assigned fixtures.";
       }
     }

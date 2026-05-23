@@ -63,7 +63,7 @@ export default function Hero() {
             className="text-gray-400 text-lg mb-8 max-w-md will-change-transform"
           >
             From live scoring to tournament management and deep analytics — 
-            ClubArenaX is the all-in-one platform powering modern cricket.
+            CricArena is the all-in-one platform powering modern cricket.
           </motion.p>
 
           <motion.div

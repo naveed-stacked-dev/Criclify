@@ -147,7 +147,7 @@ export default function About() {
               </span>
             </h2>
             <p className="text-gray-400 leading-relaxed mb-8">
-              ClubArenaX was born out of a passion for cricket and a frustration with outdated management tools.
+              CricArena was born out of a passion for cricket and a frustration with outdated management tools.
               We set out to create a platform that combines the thrill of the game with cutting-edge technology — 
               delivering real-time insights, seamless management, and an experience that matches the intensity of cricket itself.
             </p>

@@ -23,6 +23,29 @@ export default function LiveScoreWidget({ match, summary: liveSummary }) {
   const secondInning = inning?.second || {};
   const activeInning = isSecondInnings ? secondInning : firstInning;
 
+  const firstBattingId = typeof firstInning?.battingTeamId === "object"
+    ? firstInning?.battingTeamId?._id
+    : firstInning?.battingTeamId;
+
+  const teamBId = teamB?._id || teamB?.id;
+  const teamABatsFirst = firstBattingId ? firstBattingId !== teamBId : true;
+
+  const teamAInning = teamABatsFirst ? firstInning : secondInning;
+  const teamBInning = teamABatsFirst ? secondInning : firstInning;
+
+  const isTeamABatting = teamABatsFirst ? currentInning === 1 : currentInning >= 2;
+  const isTeamBBatting = teamABatsFirst ? currentInning >= 2 : currentInning === 1;
+
+  const teamAIsLeft = isTeamABatting || (!isTeamBBatting && teamABatsFirst);
+  
+  const leftTeam = teamAIsLeft ? teamA : teamB;
+  const leftInning = teamAIsLeft ? teamAInning : teamBInning;
+  const leftIsBatting = teamAIsLeft ? isTeamABatting : isTeamBBatting;
+
+  const rightTeam = teamAIsLeft ? teamB : teamA;
+  const rightInning = teamAIsLeft ? teamBInning : teamAInning;
+  const rightIsBatting = teamAIsLeft ? isTeamBBatting : isTeamABatting;
+
   const striker = summary.currentBatsmen?.striker;
   const nonStriker = summary.currentBatsmen?.nonStriker;
   const bowler = summary.currentBowler;
@@ -85,13 +108,13 @@ export default function LiveScoreWidget({ match, summary: liveSummary }) {
       {/* ═══ Score Section ═══ */}
       <div className="px-5 pb-4">
         <div className="flex items-stretch gap-3">
-          {/* Team A */}
+          {/* Left Team (Batting) */}
           <TeamScoreCard
-            team={teamA}
-            score={firstInning.score}
-            wickets={firstInning.wickets}
-            overs={firstInning.overs}
-            isBatting={currentInning === 1}
+            team={leftTeam}
+            score={leftInning.score}
+            wickets={leftInning.wickets}
+            overs={leftInning.overs}
+            isBatting={leftIsBatting}
           />
 
           {/* VS Divider */}
@@ -106,13 +129,13 @@ export default function LiveScoreWidget({ match, summary: liveSummary }) {
             <div className="w-px h-6 bg-slate-200" />
           </div>
 
-          {/* Team B */}
+          {/* Right Team (Bowling) */}
           <TeamScoreCard
-            team={teamB}
-            score={secondInning.score}
-            wickets={secondInning.wickets}
-            overs={secondInning.overs}
-            isBatting={currentInning >= 2}
+            team={rightTeam}
+            score={rightInning.score}
+            wickets={rightInning.wickets}
+            overs={rightInning.overs}
+            isBatting={rightIsBatting}
           />
         </div>
 

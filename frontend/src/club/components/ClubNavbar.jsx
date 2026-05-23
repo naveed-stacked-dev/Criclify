@@ -46,8 +46,7 @@ export default function ClubNavbar({ club }) {
           <Link to="/" className="hidden bg-[#0f172a] px-3 py-2 rounded-full md:flex items-center gap-2 text-[11px] text-white/70 flex-shrink-0 ml-4 hover:bg-[#1e293b] hover:shadow-md transition-all cursor-pointer">
             <span>Powered by</span>
             <span className="font-bold text-white tracking-tight">
-              Club<span style={{ color: "#00f3ff" }}>Arena</span>
-              <span style={{ color: "#bc13fe" }}>X</span>
+              Cric<span style={{ color: "#00f3ff" }}>Arena</span>
             </span>
           </Link>
         </div>

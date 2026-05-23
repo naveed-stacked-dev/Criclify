@@ -48,7 +48,7 @@ export default function RegisterPage() {
     <div className="min-h-[80vh] flex items-center justify-center py-20 px-4">
       <div className="w-full max-w-md bg-white/5 border border-white/10 rounded-2xl p-8 backdrop-blur-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-teal-400">Join ClubArenaX</h1>
+          <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-teal-400">Join CricArena</h1>
           <p className="text-gray-400 mt-2 text-sm">Create an account to follow your favorite teams</p>
         </div>
 

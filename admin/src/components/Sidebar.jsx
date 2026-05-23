@@ -84,7 +84,7 @@ export default function Sidebar() {
               exit={{ opacity: 0, x: -10 }}
               className="font-bold text-sidebar-foreground text-sm whitespace-nowrap truncate"
             >
-              {isClubOrMatchManager && clubName ? clubName : "ClubArenaX"}
+              {isClubOrMatchManager && clubName ? clubName : "CricArena"}
             </motion.span>
           )}
         </AnimatePresence>

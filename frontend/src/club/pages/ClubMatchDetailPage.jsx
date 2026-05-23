@@ -75,6 +75,28 @@ export default function ClubMatchDetailPage() {
   const teamBId = match.teamB?._id || match.teamB?.id;
   const currentInning = scorecard?.currentInning || 1;
 
+  const firstBattingId = typeof scorecard?.innings?.first?.battingTeamId === "object"
+    ? scorecard?.innings?.first?.battingTeamId?._id
+    : scorecard?.innings?.first?.battingTeamId;
+
+  const teamABatsFirst = firstBattingId ? firstBattingId !== teamBId : true;
+  const teamAInning = teamABatsFirst ? scorecard?.innings?.first : scorecard?.innings?.second;
+  const teamBInning = teamABatsFirst ? scorecard?.innings?.second : scorecard?.innings?.first;
+  const isTeamABatting = teamABatsFirst ? currentInning === 1 : currentInning >= 2;
+  const isTeamBBatting = teamABatsFirst ? currentInning >= 2 : currentInning === 1;
+
+  const teamAIsLeft = isTeamABatting || (!isTeamBBatting && teamABatsFirst);
+
+  const leftTeam = teamAIsLeft ? match.teamA : match.teamB;
+  const leftInning = teamAIsLeft ? teamAInning : teamBInning;
+  const leftIsBatting = teamAIsLeft ? isTeamABatting : isTeamBBatting;
+  const leftId = teamAIsLeft ? teamAId : teamBId;
+
+  const rightTeam = teamAIsLeft ? match.teamB : match.teamA;
+  const rightInning = teamAIsLeft ? teamBInning : teamAInning;
+  const rightIsBatting = teamAIsLeft ? isTeamBBatting : isTeamABatting;
+  const rightId = teamAIsLeft ? teamBId : teamAId;
+
   const inningsToShow = [
     scorecard?.innings?.first && { key: "first", label: `1st Innings`, data: scorecard.innings.first },
     scorecard?.innings?.second?.battingTeamId && { key: "second", label: `2nd Innings`, data: scorecard.innings.second },
@@ -123,7 +145,7 @@ export default function ClubMatchDetailPage() {
 
         {/* Teams */}
         <div className="flex items-center justify-between gap-4">
-          <TeamHeader team={match.teamA} innings={scorecard?.innings?.first} isWinner={winnerId === teamAId} isBatting={isLive && currentInning === 1} />
+          <TeamHeader team={leftTeam} innings={leftInning} isWinner={winnerId === leftId} isBatting={isLive && leftIsBatting} />
           <div className="text-center shrink-0 px-3">
             {isCompleted ? (
               <div className="space-y-1">
@@ -136,7 +158,7 @@ export default function ClubMatchDetailPage() {
               <span className="text-lg font-black" style={{ color: "var(--club-text-muted)" }}>vs</span>
             )}
           </div>
-          <TeamHeader team={match.teamB} innings={scorecard?.innings?.second} isWinner={winnerId === teamBId} isBatting={isLive && currentInning === 2} reverse />
+          <TeamHeader team={rightTeam} innings={rightInning} isWinner={winnerId === rightId} isBatting={isLive && rightIsBatting} reverse />
         </div>
 
         {/* Target Banner */}

@@ -88,7 +88,7 @@ export default function LoginPage() {
           >
             <span className="text-2xl">🏏</span>
           </motion.div>
-          <h1 className="text-2xl font-bold text-foreground">ClubArenaX</h1>
+          <h1 className="text-2xl font-bold text-foreground">CricArena</h1>
           <p className="text-sm text-muted-foreground mt-1">Admin Dashboard</p>
         </div>
 

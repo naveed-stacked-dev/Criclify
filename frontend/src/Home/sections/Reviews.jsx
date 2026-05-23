@@ -6,14 +6,14 @@ const reviews = [
   {
     name: 'Virat Sharma',
     role: 'Captain, Delhi Strikers',
-    content: 'ClubArenaX completely transformed how we manage our team. The live scoring is incredibly accurate and the analytics have given us a real competitive edge.',
+    content: 'CricArena completely transformed how we manage our team. The live scoring is incredibly accurate and the analytics have given us a real competitive edge.',
     rating: 5,
     avatar: 'VS',
   },
   {
     name: 'Aisha Patel',
     role: 'Tournament Director',
-    content: 'Managing 32-team tournaments used to be a nightmare. ClubArenaX automates fixtures, standings, and even generates brackets. It&apos;s a game-changer.',
+    content: 'Managing 32-team tournaments used to be a nightmare. CricArena automates fixtures, standings, and even generates brackets. It&apos;s a game-changer.',
     rating: 5,
     avatar: 'AP',
   },
@@ -27,7 +27,7 @@ const reviews = [
   {
     name: 'Sarah Johnson',
     role: 'League Administrator',
-    content: 'We switched from spreadsheets to ClubArenaX and haven&apos;t looked back. The platform handles everything from registrations to final standings seamlessly.',
+    content: 'We switched from spreadsheets to CricArena and haven&apos;t looked back. The platform handles everything from registrations to final standings seamlessly.',
     rating: 4,
     avatar: 'SJ',
   },
