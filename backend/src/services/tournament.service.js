@@ -63,6 +63,31 @@ const getTournamentById = async (id) => {
  * Uses the standard round-robin algorithm: fix one team, rotate the rest.
  * Only creates team pairings with status "unscheduled".
  */
+/**
+ * Round-robin algorithm for a set of teams.
+ * Returns array of { teamA, teamB } pairs.
+ */
+function roundRobinPairs(teams) {
+  const list = [...teams];
+  if (list.length % 2 !== 0) list.push(null); // bye slot
+  const total = list.length;
+  const rounds = total - 1;
+  const perRound = total / 2;
+  const pairs = [];
+  const indices = list.map((_, i) => i);
+
+  for (let r = 0; r < rounds; r++) {
+    for (let m = 0; m < perRound; m++) {
+      const a = indices[m];
+      const b = indices[total - 1 - m];
+      if (list[a] && list[b]) pairs.push({ teamA: list[a], teamB: list[b], round: r + 1 });
+    }
+    const last = indices.pop();
+    indices.splice(1, 0, last);
+  }
+  return pairs;
+}
+
 const generateLeagueFixtures = async (tournamentId) => {
   const tournament = await Tournament.findById(tournamentId).populate('teams');
   if (!tournament) throw ApiError.notFound('Tournament not found');
@@ -70,70 +95,64 @@ const generateLeagueFixtures = async (tournamentId) => {
     throw ApiError.conflict('Fixtures have already been generated');
   }
 
-  const teams = [...tournament.teams];
-  const numTeams = teams.length;
-
-  if (numTeams < 2) {
-    throw ApiError.badRequest('Need at least 2 teams to generate fixtures');
-  }
-
-  // If odd number of teams, add a "bye" placeholder
-  const hasBye = numTeams % 2 !== 0;
-  if (hasBye) teams.push(null);
-
-  const totalTeams = teams.length;
-  const rounds = totalTeams - 1;
-  const matchesPerRound = totalTeams / 2;
+  const allTeams = tournament.teams;
+  if (allTeams.length < 2) throw ApiError.badRequest('Need at least 2 teams to generate fixtures');
 
   const fixtures = [];
   let matchNumber = 1;
 
-  // Round-robin scheduling algorithm
-  const teamIndices = teams.map((_, i) => i);
+  // ── Group-stage fixtures ──────────────────────────────────────
+  const activeGroups = (tournament.groups || []).filter(g => g.teams && g.teams.length >= 2);
+  const hasGroups = activeGroups.length >= 2;
 
-  for (let round = 0; round < rounds; round++) {
-    for (let match = 0; match < matchesPerRound; match++) {
-      const home = teamIndices[match];
-      const away = teamIndices[totalTeams - 1 - match];
+  if (hasGroups) {
+    for (const group of activeGroups) {
+      const groupTeamIds = group.teams.map(t => t.toString());
+      const groupTeams = allTeams.filter(t => groupTeamIds.includes(t._id.toString()));
+      const pairs = roundRobinPairs(groupTeams);
+      let groupMatchNum = 1;
 
-      // Skip matches involving the bye
-      if (teams[home] && teams[away]) {
+      for (const pair of pairs) {
         fixtures.push({
-          teamA: teams[home]._id,
-          teamB: teams[away]._id,
+          teamA: pair.teamA._id,
+          teamB: pair.teamB._id,
           tournamentId: tournament._id,
           clubId: tournament.clubId,
           status: 'unscheduled',
           matchNumber: matchNumber++,
-          round: round + 1,
-          tournamentMeta: { isKnockout: false, roundNumber: round + 1 },
+          round: pair.round,
+          matchGroup: group.name,
+          matchLabel: `Grp ${group.name} - M${groupMatchNum++}`,
+          tournamentMeta: { isKnockout: false, roundNumber: pair.round },
           oversPerInning: tournament.settings?.oversPerInning || 20,
         });
       }
     }
-
-    // Rotate: fix first element, rotate rest
-    const last = teamIndices.pop();
-    teamIndices.splice(1, 0, last);
+  } else {
+    // ── Flat round-robin (no groups) ──────────────────────────
+    const pairs = roundRobinPairs(allTeams);
+    for (const pair of pairs) {
+      fixtures.push({
+        teamA: pair.teamA._id,
+        teamB: pair.teamB._id,
+        tournamentId: tournament._id,
+        clubId: tournament.clubId,
+        status: 'unscheduled',
+        matchNumber: matchNumber++,
+        round: pair.round,
+        tournamentMeta: { isKnockout: false, roundNumber: pair.round },
+        oversPerInning: tournament.settings?.oversPerInning || 20,
+      });
+    }
   }
 
   const createdMatches = await Match.insertMany(fixtures);
   const matchIds = createdMatches.map((m) => m._id);
 
-  // Initialize points table
-  const pointsTable = tournament.teams.map((team) => ({
+  const pointsTable = allTeams.map((team) => ({
     teamId: team._id,
-    played: 0,
-    won: 0,
-    lost: 0,
-    tied: 0,
-    noResult: 0,
-    points: 0,
-    nrr: 0,
-    runsScored: 0,
-    oversFaced: 0,
-    runsConceded: 0,
-    oversBowled: 0,
+    played: 0, won: 0, lost: 0, tied: 0, noResult: 0,
+    points: 0, nrr: 0, runsScored: 0, oversFaced: 0, runsConceded: 0, oversBowled: 0,
   }));
 
   tournament.matches = matchIds;
@@ -141,7 +160,7 @@ const generateLeagueFixtures = async (tournamentId) => {
   tournament.status = 'ongoing';
   await tournament.save();
 
-  return { tournament, matches: createdMatches };
+  return { tournament, matches: createdMatches, hasGroups, groupCount: hasGroups ? activeGroups.length : 0 };
 };
 
 // ─── KNOCKOUT BRACKET GENERATION ────────────────────────────────────────────
@@ -521,17 +540,43 @@ const generateFixtures = async (tournamentId) => {
 const getPointsTable = async (tournamentId) => {
   const tournament = await Tournament.findById(tournamentId).populate(
     'pointsTable.teamId',
-    'name logo'
+    'name logo color'
   );
   if (!tournament) throw ApiError.notFound('Tournament not found');
 
-  // Sort by points (desc), then NRR (desc)
-  const sortedTable = [...tournament.pointsTable].sort((a, b) => {
+  const sortFn = (a, b) => {
     if (b.points !== a.points) return b.points - a.points;
+    if (b.won !== a.won) return b.won - a.won;
     return b.nrr - a.nrr;
-  });
+  };
 
-  return sortedTable;
+  const activeGroups = (tournament.groups || []).filter(g => g.teams && g.teams.length >= 2);
+  const hasGroups = activeGroups.length >= 2;
+
+  if (hasGroups) {
+    const groupedTable = activeGroups.map(group => {
+      const groupTeamIds = new Set(group.teams.map(t => t.toString()));
+      const groupStandings = tournament.pointsTable
+        .filter(entry => {
+          const tid = entry.teamId?._id?.toString() || entry.teamId?.toString();
+          return groupTeamIds.has(tid);
+        })
+        .sort(sortFn);
+      return { groupName: group.name, teams: groupStandings };
+    });
+
+    // Teams not in any group go to "Other"
+    const assignedIds = new Set(activeGroups.flatMap(g => g.teams.map(t => t.toString())));
+    const unassigned = tournament.pointsTable.filter(entry => {
+      const tid = entry.teamId?._id?.toString() || entry.teamId?.toString();
+      return !assignedIds.has(tid);
+    }).sort(sortFn);
+    if (unassigned.length > 0) groupedTable.push({ groupName: 'Other', teams: unassigned });
+
+    return { hasGroups: true, groups: groupedTable, all: [...tournament.pointsTable].sort(sortFn) };
+  }
+
+  return { hasGroups: false, groups: [], all: [...tournament.pointsTable].sort(sortFn) };
 };
 
 /**

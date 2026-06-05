@@ -4,10 +4,19 @@ const MatchEvent = require('../models/MatchEvent');
 const Match = require('../models/Match');
 const ApiError = require('../utils/ApiError');
 
+const TEAM_ROSTER_LIMIT = 35;
+
 /**
  * Create a player within a club/team.
  */
 const createPlayer = async (data) => {
+  if (data.teamId) {
+    const count = await Player.countDocuments({ teamId: data.teamId });
+    if (count >= TEAM_ROSTER_LIMIT) {
+      throw ApiError.badRequest(`Team roster is full. Maximum ${TEAM_ROSTER_LIMIT} players allowed per team.`);
+    }
+  }
+
   const player = await Player.create(data);
 
   // Initialize stats cache
@@ -53,9 +62,20 @@ const getPlayerById = async (id) => {
 };
 
 /**
- * Update a player.
+ * Update a player. Checks roster limit if team is being assigned.
  */
 const updatePlayer = async (id, data) => {
+  if (data.teamId) {
+    const existing = await Player.findById(id).select('teamId');
+    const isNewTeam = !existing?.teamId || existing.teamId.toString() !== data.teamId.toString();
+    if (isNewTeam) {
+      const count = await Player.countDocuments({ teamId: data.teamId, _id: { $ne: id } });
+      if (count >= TEAM_ROSTER_LIMIT) {
+        throw ApiError.badRequest(`Team roster is full. Maximum ${TEAM_ROSTER_LIMIT} players allowed per team.`);
+      }
+    }
+  }
+
   const player = await Player.findByIdAndUpdate(id, data, {
     new: true,
     runValidators: true,

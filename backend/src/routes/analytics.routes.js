@@ -12,5 +12,6 @@ router.get('/team/:id', analyticsController.getTeamAnalytics);
 router.get('/team/:id/head-to-head/:opponentId', analyticsController.getHeadToHeadStats);
 
 router.get('/leaderboard/:clubId', paginate, analyticsController.getLeaderboard);
+router.get('/dashboard/:clubId', analyticsController.getClubDashboardStats);
 
 module.exports = router;

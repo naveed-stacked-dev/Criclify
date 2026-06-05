@@ -44,6 +44,7 @@ const updateThemeSchema = Joi.object({
   secondaryColor: Joi.string().pattern(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/).optional()
     .messages({ 'string.pattern.base': 'Secondary color must be a valid hex color' }),
   bannerUrl: Joi.string().uri().allow(null, '').optional(),
+  template: Joi.string().valid('classic', 'cricket-ball', 'stadium', 'pitch-lines', 'trophy-gold').optional(),
 }).min(1).messages({ 'object.min': 'At least one theme field is required' });
 
 const updateSettingsSchema = Joi.object({

@@ -93,6 +93,7 @@ export default function LiveScoringPage() {
   const [activeNonStriker, setActiveNonStriker] = useState("");
   const [activeBowler, setActiveBowler] = useState("");
   const [wicketForm, setWicketForm] = useState({ batsman: "", type: "bowled", fielder: "" });
+  const [showExtrasMenu, setShowExtrasMenu] = useState(null); // 'wide' | 'bye' | 'legbye' | null
   const [pauseReason, setPauseReason] = useState("");
   const [pauseStartTime, setPauseStartTime] = useState("");
   const [newBowler, setNewBowler] = useState("");
@@ -424,6 +425,19 @@ export default function LiveScoringPage() {
     }
   }, [scorecard, match, showWinnerPopup, showSuperOver]);
 
+  // Load bowling team players when wicket modal opens (needed for fielder dropdown)
+  useEffect(() => {
+    if (!showWicket) return;
+    const bowlId = scorecard?.innings?.[
+      scorecard?.currentInning === 1 ? 'first' : scorecard?.currentInning === 2 ? 'second' : scorecard?.currentInning === 3 ? 'superOverFirst' : 'superOverSecond'
+    ]?.bowlingTeamId?._id || scorecard?.innings?.[
+      scorecard?.currentInning === 1 ? 'first' : scorecard?.currentInning === 2 ? 'second' : scorecard?.currentInning === 3 ? 'superOverFirst' : 'superOverSecond'
+    ]?.bowlingTeamId;
+    if (bowlId && bowlingTeamPlayers.length === 0) {
+      teamService.getPlayers(bowlId).then(res => setBowlingTeamPlayers(res.data?.data || []));
+    }
+  }, [showWicket]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ─── Switch Innings Handler ───
   const handleSwitchInnings = () => {
     if (!scorecard || !match) return;
@@ -640,9 +654,10 @@ export default function LiveScoringPage() {
     scoreMut.mutate({ runs, batsmanId: strikerId, bowlerId });
   };
 
-  const handleExtra = (extraType) => {
+  const handleExtra = (extraType, extraRuns = 1, additionalRuns = 0) => {
     if (!strikerId || !bowlerId) return toast.error("Please set active players first");
-    extraMut.mutate({ extraType, extraRuns: 1, runs: 0, batsmanId: strikerId, bowlerId });
+    extraMut.mutate({ extraType, extraRuns, runs: additionalRuns, batsmanId: strikerId, bowlerId });
+    setShowExtrasMenu(null);
   };
 
   const handleBowlerChange = () => {
@@ -797,62 +812,155 @@ export default function LiveScoringPage() {
           </CardHeader>
           <CardContent className="p-6">
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-              {[0, 1, 2, 3, 4, 6].map(runs => (
-                <Button 
-                  key={runs} 
-                  variant="secondary"
-                  className="h-20 text-2xl font-bold shadow-sm transition-all active:scale-95 border"
-                  style={runs === 4 || runs === 6 
-                    ? { backgroundColor: themeColor, color: '#fff', borderColor: themeColor, boxShadow: `0 4px 12px ${themeColor}40` } 
-                    : { borderColor: `${themeColor}20` }
-                  }
-                  onClick={() => handleScore(runs)} 
-                  disabled={scoreMut.isPending}
+              {[0, 1, 2, 3, 4, 6].map(runs => {
+                const isBoundary = runs === 4 || runs === 6;
+                return (
+                  <Button
+                    key={runs}
+                    variant="secondary"
+                    className="h-20 text-2xl font-bold shadow-sm border transition-all duration-150 active:scale-95 hover:scale-[1.03] hover:shadow-md"
+                    style={isBoundary
+                      ? { backgroundColor: themeColor, color: '#fff', borderColor: themeColor, boxShadow: `0 4px 12px ${themeColor}40` }
+                      : { borderColor: `${themeColor}20` }
+                    }
+                    onMouseEnter={e => {
+                      if (isBoundary) {
+                        e.currentTarget.style.filter = 'brightness(1.12)';
+                        e.currentTarget.style.boxShadow = `0 6px 20px ${themeColor}55`;
+                      } else {
+                        e.currentTarget.style.backgroundColor = `${themeColor}12`;
+                        e.currentTarget.style.borderColor = `${themeColor}50`;
+                        e.currentTarget.style.color = themeColor;
+                      }
+                    }}
+                    onMouseLeave={e => {
+                      if (isBoundary) {
+                        e.currentTarget.style.filter = '';
+                        e.currentTarget.style.boxShadow = `0 4px 12px ${themeColor}40`;
+                      } else {
+                        e.currentTarget.style.backgroundColor = '';
+                        e.currentTarget.style.borderColor = `${themeColor}20`;
+                        e.currentTarget.style.color = '';
+                      }
+                    }}
+                    onClick={() => handleScore(runs)}
+                    disabled={scoreMut.isPending}
+                  >
+                    {runs}
+                  </Button>
+                );
+              })}
+              {/* Wide with extra runs sub-menu */}
+              <div className="relative">
+                <Button
+                  variant="outline"
+                  className="h-20 w-full text-lg font-bold shadow-sm transition-all duration-150 active:scale-95 hover:scale-[1.03] hover:shadow-md"
+                  style={{ borderColor: `${themeColor}40`, color: themeColor, backgroundColor: `${themeColor}08` }}
+                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = `${themeColor}20`; e.currentTarget.style.borderColor = themeColor; }}
+                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = `${themeColor}08`; e.currentTarget.style.borderColor = `${themeColor}40`; }}
+                  onClick={() => setShowExtrasMenu(showExtrasMenu === "wide" ? null : "wide")}
+                  disabled={extraMut.isPending}
                 >
-                  {runs}
+                  WD
                 </Button>
-              ))}
-              <Button 
-                variant="outline" 
-                className="h-20 text-lg font-bold shadow-sm transition-all active:scale-95" 
-                style={{ borderColor: `${themeColor}40`, color: themeColor, backgroundColor: `${themeColor}05` }}
-                onClick={() => handleExtra("wide")} 
-                disabled={extraMut.isPending}
-              >
-                WD
-              </Button>
-              <Button 
-                variant="outline" 
-                className="h-20 text-lg font-bold shadow-sm transition-all active:scale-95" 
-                style={{ borderColor: `${themeColor}40`, color: themeColor, backgroundColor: `${themeColor}05` }}
-                onClick={() => handleExtra("noball")} 
+                {showExtrasMenu === "wide" && (
+                  <div className="absolute bottom-full mb-1 left-0 z-20 bg-popover border border-border rounded-lg shadow-lg p-2 flex gap-1 min-w-max">
+                    {[1, 2, 3, 4].map((n) => (
+                      <button
+                        key={n}
+                        className="px-3 py-1.5 rounded text-sm font-semibold hover:opacity-80 transition text-white"
+                        style={{ backgroundColor: themeColor }}
+                        onClick={() => handleExtra("wide", 1, n - 1)}
+                      >
+                        WD+{n > 1 ? `${n - 1}R` : ""}
+                        {n === 1 ? "(1)" : `(${n})`}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* No Ball */}
+              <Button
+                variant="outline"
+                className="h-20 text-lg font-bold shadow-sm transition-all duration-150 active:scale-95 hover:scale-[1.03] hover:shadow-md"
+                style={{ borderColor: `${themeColor}40`, color: themeColor, backgroundColor: `${themeColor}08` }}
+                onMouseEnter={e => { e.currentTarget.style.backgroundColor = `${themeColor}20`; e.currentTarget.style.borderColor = themeColor; }}
+                onMouseLeave={e => { e.currentTarget.style.backgroundColor = `${themeColor}08`; e.currentTarget.style.borderColor = `${themeColor}40`; }}
+                onClick={() => handleExtra("noball")}
                 disabled={extraMut.isPending}
               >
                 NB
               </Button>
-              <Button 
-                variant="outline" 
-                className="h-20 text-lg font-bold shadow-sm transition-all active:scale-95" 
-                style={{ borderColor: `${themeColor}40`, color: themeColor, backgroundColor: `${themeColor}05` }}
-                onClick={() => handleExtra("bye")} 
-                disabled={extraMut.isPending}
+
+              {/* Byes with extra runs sub-menu */}
+              <div className="relative">
+                <Button
+                  variant="outline"
+                  className="h-20 w-full text-lg font-bold shadow-sm transition-all duration-150 active:scale-95 hover:scale-[1.03] hover:shadow-md"
+                  style={{ borderColor: `${themeColor}40`, color: themeColor, backgroundColor: `${themeColor}08` }}
+                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = `${themeColor}20`; e.currentTarget.style.borderColor = themeColor; }}
+                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = `${themeColor}08`; e.currentTarget.style.borderColor = `${themeColor}40`; }}
+                  onClick={() => setShowExtrasMenu(showExtrasMenu === "bye" ? null : "bye")}
+                  disabled={extraMut.isPending}
+                >
+                  B
+                </Button>
+                {showExtrasMenu === "bye" && (
+                  <div className="absolute bottom-full mb-1 left-0 z-20 bg-popover border border-border rounded-lg shadow-lg p-2 flex gap-1 min-w-max">
+                    {[1, 2, 3, 4].map((n) => (
+                      <button
+                        key={n}
+                        className="px-3 py-1.5 rounded text-sm font-semibold hover:opacity-80 transition text-white"
+                        style={{ backgroundColor: themeColor }}
+                        onClick={() => handleExtra("bye", n, 0)}
+                      >
+                        B+{n}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Leg Byes with extra runs sub-menu */}
+              <div className="relative">
+                <Button
+                  variant="outline"
+                  className="h-20 w-full text-lg font-bold shadow-sm transition-all duration-150 active:scale-95 hover:scale-[1.03] hover:shadow-md"
+                  style={{ borderColor: `${themeColor}40`, color: themeColor, backgroundColor: `${themeColor}08` }}
+                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = `${themeColor}20`; e.currentTarget.style.borderColor = themeColor; }}
+                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = `${themeColor}08`; e.currentTarget.style.borderColor = `${themeColor}40`; }}
+                  onClick={() => setShowExtrasMenu(showExtrasMenu === "legbye" ? null : "legbye")}
+                  disabled={extraMut.isPending}
+                >
+                  LB
+                </Button>
+                {showExtrasMenu === "legbye" && (
+                  <div className="absolute bottom-full mb-1 left-0 z-20 bg-popover border border-border rounded-lg shadow-lg p-2 flex gap-1 min-w-max">
+                    {[1, 2, 3, 4].map((n) => (
+                      <button
+                        key={n}
+                        className="px-3 py-1.5 rounded text-sm font-semibold hover:opacity-80 transition text-white"
+                        style={{ backgroundColor: themeColor }}
+                        onClick={() => handleExtra("legbye", n, 0)}
+                      >
+                        LB+{n}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <Button
+                variant="destructive"
+                className="h-20 text-xl font-bold sm:col-span-2 transition-all duration-150 active:scale-95 hover:scale-[1.02] hover:shadow-lg hover:shadow-red-500/30 hover:brightness-110"
+                style={{ boxShadow: '0 4px 14px rgba(239,68,68,0.25)' }}
+                onClick={() => {
+                  if (!strikerId || !bowlerId) return toast.error("Please set active players first");
+                  setShowExtrasMenu(null);
+                  setShowWicket(true);
+                }}
               >
-                B
-              </Button>
-              <Button 
-                variant="outline" 
-                className="h-20 text-lg font-bold shadow-sm transition-all active:scale-95" 
-                style={{ borderColor: `${themeColor}40`, color: themeColor, backgroundColor: `${themeColor}05` }}
-                onClick={() => handleExtra("legbye")} 
-                disabled={extraMut.isPending}
-              >
-                LB
-              </Button>
-              
-              <Button variant="destructive" className="h-20 text-xl font-bold sm:col-span-2 shadow-sm shadow-red-500/20 transition-all active:scale-95" onClick={() => {
-                if (!strikerId || !bowlerId) return toast.error("Please set active players first");
-                setShowWicket(true);
-              }}>
                 WICKET
               </Button>
             </div>
@@ -1065,7 +1173,7 @@ export default function LiveScoringPage() {
             </div>
             <div className="space-y-2">
               <Label>Dismissal Type</Label>
-              <Select value={wicketForm.type} onValueChange={(v) => setWicketForm({ ...wicketForm, type: v })}>
+              <Select value={wicketForm.type} onValueChange={(v) => setWicketForm({ ...wicketForm, type: v, fielder: "" })}>
                 <SelectTrigger className="h-12"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="bowled">Bowled</SelectItem>
@@ -1077,10 +1185,44 @@ export default function LiveScoringPage() {
                 </SelectContent>
               </Select>
             </div>
+            {/* Fielder / Keeper selection for caught, stumped, runout */}
+            {(wicketForm.type === "caught" || wicketForm.type === "stumped" || wicketForm.type === "runout") && (
+              <div className="space-y-2">
+                <Label>
+                  {wicketForm.type === "stumped" ? "Wicket Keeper" : wicketForm.type === "caught" ? "Caught By" : "Run Out By (Fielder)"}
+                </Label>
+                <Select value={wicketForm.fielder} onValueChange={(v) => setWicketForm({ ...wicketForm, fielder: v })}>
+                  <SelectTrigger className="h-12"><SelectValue placeholder="Select fielder / keeper" /></SelectTrigger>
+                  <SelectContent>
+                    {filteredBowlingPlayers.map((p) => (
+                      <SelectItem key={p._id || p.id} value={p._id || p.id}>
+                        {p.name}
+                        {p.role === "wicketkeeper" ? " (WK)" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {wicketForm.type === "bowled" && (
+              <p className="text-xs text-muted-foreground bg-secondary/30 rounded-lg px-3 py-2">
+                Bowler: <span className="font-semibold">{bowler?.playerId?.name || "Current bowler"}</span> will be credited automatically.
+              </p>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowWicket(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={() => wicketMut.mutate({ batsmanId: strikerId, bowlerId, outPlayerId: wicketForm.batsman, wicketType: wicketForm.type })} disabled={wicketMut.isPending || !wicketForm.batsman}>
+            <Button
+              variant="destructive"
+              onClick={() => wicketMut.mutate({
+                batsmanId: strikerId,
+                bowlerId,
+                outPlayerId: wicketForm.batsman,
+                wicketType: wicketForm.type,
+                fielderId: wicketForm.fielder || undefined,
+              })}
+              disabled={wicketMut.isPending || !wicketForm.batsman}
+            >
               {wicketMut.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />} Confirm Wicket
             </Button>
           </DialogFooter>

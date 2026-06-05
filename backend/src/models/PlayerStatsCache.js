@@ -42,6 +42,10 @@ const playerStatsCacheSchema = new mongoose.Schema(
     dotBallsBowled: { type: Number, default: 0 },
     maidens: { type: Number, default: 0 },
 
+    // Bowling milestones
+    fourWicketHauls: { type: Number, default: 0 },
+    fiveWicketHauls: { type: Number, default: 0 },
+
     // Fielding stats
     catches: { type: Number, default: 0 },
     stumpings: { type: Number, default: 0 },

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import { useAppContext } from "@/hooks/useAppContext";
 import { toast } from "sonner";
 import { Loader2, AlertCircle } from "lucide-react";
@@ -25,7 +26,7 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       await register({ name, email, phone, password });
-      toast.success("Account created successfully!");
+      toast.success("Account created! Welcome to CricArena.");
       navigate("/profile");
     } catch (err) {
       const data = err?.response?.data;
@@ -42,95 +43,117 @@ export default function RegisterPage() {
   };
 
   const inputClass = (field) =>
-    `w-full bg-white/5 border rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all ${fieldErrors[field] ? "border-red-500" : "border-white/10"}`;
+    `w-full bg-white/5 border rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-[#bc13fe]/40 focus:border-[#bc13fe]/50 transition-all ${fieldErrors[field] ? "border-red-500/70" : "border-white/10"}`;
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center py-20 px-4">
-      <div className="w-full max-w-md bg-white/5 border border-white/10 rounded-2xl p-8 backdrop-blur-md">
+    <div className="relative min-h-[90vh] flex items-center justify-center px-4 py-20 overflow-hidden">
+      {/* Neon glow blobs */}
+      <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-[#bc13fe]/8 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-[#00f3ff]/8 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#bc13fe]/3 rounded-full blur-[160px] pointer-events-none" />
+
+      <motion.div
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="relative z-10 w-full max-w-md"
+      >
+        {/* Brand */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-teal-400">Join CricArena</h1>
-          <p className="text-gray-400 mt-2 text-sm">Create an account to follow your favorite teams</p>
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.1, type: "spring", stiffness: 200 }}
+          >
+          </motion.div>
+          <h1 className="text-2xl font-bold mt-3 bg-clip-text text-transparent bg-gradient-to-r from-[#bc13fe] to-[#00f3ff]">
+            Create Account
+          </h1>
+          <p className="text-gray-500 mt-1 text-sm">Join CricArena and follow your favorite teams</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Full Name</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => { setName(e.target.value); clearFieldError("name"); }}
-              className={inputClass("name")}
-              placeholder="John Doe"
-              required
-            />
-            {fieldErrors.name && (
-              <p className="text-xs text-red-400 flex items-center gap-1 mt-1.5">
-                <AlertCircle className="w-3 h-3 shrink-0" /> {fieldErrors.name}
-              </p>
-            )}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Email Address</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => { setEmail(e.target.value); clearFieldError("email"); }}
-              className={inputClass("email")}
-              placeholder="you@example.com"
-              required
-            />
-            {fieldErrors.email && (
-              <p className="text-xs text-red-400 flex items-center gap-1 mt-1.5">
-                <AlertCircle className="w-3 h-3 shrink-0" /> {fieldErrors.email}
-              </p>
-            )}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Phone Number (optional)</label>
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => { setPhone(e.target.value); clearFieldError("phone"); }}
-              className={inputClass("phone")}
-              placeholder="+91..."
-            />
-            {fieldErrors.phone && (
-              <p className="text-xs text-red-400 flex items-center gap-1 mt-1.5">
-                <AlertCircle className="w-3 h-3 shrink-0" /> {fieldErrors.phone}
-              </p>
-            )}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Password</label>
-            <PasswordInput
-              value={password}
-              onChange={(e) => { setPassword(e.target.value); clearFieldError("password"); }}
-              className={inputClass("password")}
-              placeholder="••••••••"
-              required
-            />
-            {fieldErrors.password && (
-              <p className="text-xs text-red-400 flex items-center gap-1 mt-1.5">
-                <AlertCircle className="w-3 h-3 shrink-0" /> {fieldErrors.password}
-              </p>
-            )}
-          </div>
+        {/* Card */}
+        <div
+          className="bg-white/[0.04] border border-white/10 rounded-2xl p-8 backdrop-blur-xl shadow-2xl"
+          style={{ boxShadow: "0 0 60px rgba(188,19,254,0.05), 0 0 40px rgba(0,243,255,0.05)" }}
+        >
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1.5">Full Name</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => { setName(e.target.value); clearFieldError("name"); }}
+                className={inputClass("name")}
+                placeholder="Alice"
+                required
+                autoComplete="name"
+              />
+              {fieldErrors.name && (
+                <p className="text-xs text-red-400 flex items-center gap-1 mt-1.5">
+                  <AlertCircle className="w-3 h-3 shrink-0" /> {fieldErrors.name}
+                </p>
+              )}
+            </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-semibold rounded-xl px-4 py-3 transition-all flex items-center justify-center mt-6 shadow-lg shadow-emerald-500/20"
-          >
-            {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : null}
-            Create Account
-          </button>
-        </form>
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1.5">Email Address</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); clearFieldError("email"); }}
+                className={inputClass("email")}
+                placeholder="you@example.com"
+                required
+                autoComplete="email"
+              />
+              {fieldErrors.email && (
+                <p className="text-xs text-red-400 flex items-center gap-1 mt-1.5">
+                  <AlertCircle className="w-3 h-3 shrink-0" /> {fieldErrors.email}
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1.5">Password</label>
+              <PasswordInput
+                value={password}
+                onChange={(e) => { setPassword(e.target.value); clearFieldError("password"); }}
+                className={inputClass("password")}
+                placeholder="Min. 6 characters"
+                required
+                autoComplete="new-password"
+              />
+              {fieldErrors.password && (
+                <p className="text-xs text-red-400 flex items-center gap-1 mt-1.5">
+                  <AlertCircle className="w-3 h-3 shrink-0" /> {fieldErrors.password}
+                </p>
+              )}
+            </div>
 
-        <p className="text-center text-gray-400 text-sm mt-6">
-          Already have an account?{" "}
-          <Link to="/login" className="text-emerald-400 hover:text-emerald-300 font-medium">Sign in</Link>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full mt-2 bg-gradient-to-r from-[#bc13fe] to-[#00f3ff] text-black font-bold rounded-xl px-4 py-3 transition-all flex items-center justify-center hover:opacity-90 hover:shadow-[0_0_25px_rgba(188,19,254,0.4)] shadow-[0_0_15px_rgba(0,243,255,0.3)] disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {loading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              Create Account
+            </button>
+          </form>
+
+          <div className="mt-6 pt-5 border-t border-white/8 text-center">
+            <p className="text-gray-500 text-sm">
+              Already have an account?{" "}
+              <Link to="/login" className="text-[#bc13fe] hover:text-[#bc13fe]/80 font-semibold transition-colors">
+                Sign In
+              </Link>
+            </p>
+          </div>
+        </div>
+
+        <p className="text-center text-xs text-gray-600 mt-6">
+          Cricket Club Management Platform &copy; {new Date().getFullYear()}
         </p>
-      </div>
+      </motion.div>
     </div>
   );
 }

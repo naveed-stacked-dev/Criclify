@@ -32,7 +32,10 @@ const getTeamAnalytics = async (req, res, next) => {
 const getLeaderboard = async (req, res, next) => {
   try {
     const { clubId } = req.params;
-    const data = await analyticsService.getLeaderboard(clubId, req.pagination);
+    const { tournamentId } = req.query;
+    const data = tournamentId
+      ? await analyticsService.getLeaderboardByTournament(clubId, tournamentId, req.pagination?.limit || 10)
+      : await analyticsService.getLeaderboard(clubId, req.pagination);
     res.json(ApiResponse.ok(data));
   } catch (error) {
     next(error);
@@ -71,6 +74,15 @@ const getHeadToHeadStats = async (req, res, next) => {
   }
 };
 
+const getClubDashboardStats = async (req, res, next) => {
+  try {
+    const data = await analyticsService.getClubDashboardStats(req.params.clubId);
+    res.json(ApiResponse.ok(data));
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getPlayerAnalytics,
   getMatchAnalytics,
@@ -79,4 +91,5 @@ module.exports = {
   getPlayerForm,
   getMatchGraph,
   getHeadToHeadStats,
+  getClubDashboardStats,
 };

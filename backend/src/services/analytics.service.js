@@ -301,30 +301,249 @@ const getHeadToHead = async (teamId, opponentId) => {
 
 /**
  * ──────────────────────────────────────────
+ *  LEADERBOARD — per tournament (from MatchEvent)
+ * ──────────────────────────────────────────
+ */
+const getLeaderboardByTournament = async (clubId, tournamentId, limit = 10) => {
+  const mongoose = require('mongoose');
+  const Player = require('../models/Player');
+  const tournamentOid = new mongoose.Types.ObjectId(tournamentId);
+
+  const matchIds = await Match.find({ tournamentId: tournamentOid, status: 'completed' }).distinct('_id');
+  const empty = [];
+  if (matchIds.length === 0) {
+    return {
+      topScorers: empty, topWicketTakers: empty, bestBattingAverage: empty,
+      bestEconomyRate: empty, bestBowlingAverage: empty, mostFours: empty,
+      mostSixes: empty, mostFifties: empty, mostHundreds: empty,
+      highestScores: empty, mostDotBalls: empty, wicketHauls: empty,
+      bestFielders: empty, mvp: empty,
+    };
+  }
+
+  const [battingAgg, perInningsAgg, bowlingAgg, perMatchBowlingAgg, fieldingAgg] = await Promise.all([
+    // Batting totals
+    MatchEvent.aggregate([
+      { $match: { matchId: { $in: matchIds } } },
+      {
+        $group: {
+          _id: '$batsmanId',
+          totalRuns: { $sum: '$runs' },
+          fours: { $sum: { $cond: [{ $and: [{ $eq: ['$isBoundary', true] }, { $eq: ['$isSix', false] }] }, 1, 0] } },
+          sixes: { $sum: { $cond: [{ $eq: ['$isSix', true] }, 1, 0] } },
+          ballsFaced: { $sum: { $cond: [{ $and: [{ $eq: ['$isLegalDelivery', true] }, { $ne: ['$extras.type', 'wide'] }] }, 1, 0] } },
+        },
+      },
+    ]),
+    // Per-innings (for highestScore / fifties / hundreds / innings count)
+    MatchEvent.aggregate([
+      { $match: { matchId: { $in: matchIds } } },
+      { $group: { _id: { matchId: '$matchId', inning: '$inning', batsmanId: '$batsmanId' }, inningsRuns: { $sum: '$runs' } } },
+      {
+        $group: {
+          _id: '$_id.batsmanId',
+          highestScore: { $max: '$inningsRuns' },
+          fifties:  { $sum: { $cond: [{ $and: [{ $gte: ['$inningsRuns', 50] }, { $lt: ['$inningsRuns', 100] }] }, 1, 0] } },
+          hundreds: { $sum: { $cond: [{ $gte: ['$inningsRuns', 100] }, 1, 0] } },
+          totalInnings: { $sum: 1 },
+        },
+      },
+    ]),
+    // Bowling totals
+    MatchEvent.aggregate([
+      { $match: { matchId: { $in: matchIds } } },
+      {
+        $group: {
+          _id: '$bowlerId',
+          ballsBowled:    { $sum: { $cond: ['$isLegalDelivery', 1, 0] } },
+          runsConceded:   { $sum: { $add: ['$runs', { $ifNull: ['$extras.runs', 0] }] } },
+          wickets:        { $sum: { $cond: [{ $and: ['$isWicket', { $ne: ['$wicket.type', 'runout'] }] }, 1, 0] } },
+          dotBallsBowled: {
+            $sum: {
+              $cond: [
+                { $and: ['$isLegalDelivery', { $eq: ['$runs', 0] }, { $eq: [{ $ifNull: ['$extras.runs', 0] }, 0] }] },
+                1, 0,
+              ],
+            },
+          },
+        },
+      },
+    ]),
+    // Per-match bowling (for 5-wicket hauls)
+    MatchEvent.aggregate([
+      { $match: { matchId: { $in: matchIds }, isWicket: true, 'wicket.type': { $ne: 'runout' } } },
+      { $group: { _id: { matchId: '$matchId', bowlerId: '$bowlerId' }, mw: { $sum: 1 } } },
+      { $group: { _id: '$_id.bowlerId', fiveWicketHauls: { $sum: { $cond: [{ $gte: ['$mw', 5] }, 1, 0] } } } },
+    ]),
+    // Fielding (catches / stumpings / runouts via fielderId)
+    MatchEvent.aggregate([
+      { $match: { matchId: { $in: matchIds }, isWicket: true, 'wicket.fielderId': { $exists: true, $ne: null } } },
+      {
+        $group: {
+          _id: '$wicket.fielderId',
+          catches:   { $sum: { $cond: [{ $eq: ['$wicket.type', 'caught'] },  1, 0] } },
+          stumpings: { $sum: { $cond: [{ $eq: ['$wicket.type', 'stumped'] }, 1, 0] } },
+          runOuts:   { $sum: { $cond: [{ $eq: ['$wicket.type', 'runout'] },  1, 0] } },
+        },
+      },
+      { $addFields: { total: { $add: ['$catches', '$stumpings', '$runOuts'] } } },
+      { $match: { total: { $gt: 0 } } },
+      { $sort: { total: -1 } },
+    ]),
+  ]);
+
+  // Build lookup maps
+  const perInningsMap = {};
+  perInningsAgg.forEach(e => { perInningsMap[e._id?.toString()] = e; });
+  const perMatchBowlMap = {};
+  perMatchBowlingAgg.forEach(e => { perMatchBowlMap[e._id?.toString()] = e; });
+
+  // Fetch players + teams
+  const playerIds = new Set([
+    ...battingAgg, ...bowlingAgg, ...fieldingAgg,
+  ].map(e => e._id?.toString()).filter(Boolean));
+
+  const players = await Player.find({ _id: { $in: [...playerIds] } }).populate('teamId', 'name logo').lean();
+  const playerMap = {};
+  players.forEach(p => { playerMap[p._id.toString()] = p; });
+
+  const enrichPlayer = (id) => {
+    const p = playerMap[id?.toString()];
+    if (!p) return { id, name: 'Unknown', role: null, team: null };
+    return { id: p._id, name: p.name, role: p.role, team: p.teamId || null };
+  };
+
+  // Enrich batting
+  const enrichedBatting = battingAgg.map(b => {
+    const inn = perInningsMap[b._id?.toString()];
+    const totalInnings = inn?.totalInnings || 1;
+    const battingAverage = parseFloat((b.totalRuns / totalInnings).toFixed(2));
+    const strikeRate = b.ballsFaced > 0 ? parseFloat(((b.totalRuns / b.ballsFaced) * 100).toFixed(2)) : 0;
+    return {
+      player: enrichPlayer(b._id),
+      totalRuns: b.totalRuns || 0, fours: b.fours || 0, sixes: b.sixes || 0,
+      battingAverage, strikeRate,
+      highestScore: inn?.highestScore || 0,
+      fifties: inn?.fifties || 0,
+      hundreds: inn?.hundreds || 0,
+      totalInnings,
+    };
+  });
+
+  // Enrich bowling
+  const enrichedBowling = bowlingAgg.map(bw => {
+    const pm = perMatchBowlMap[bw._id?.toString()];
+    const economy = bw.ballsBowled > 0 ? parseFloat(((bw.runsConceded / bw.ballsBowled) * 6).toFixed(2)) : 0;
+    const bowlingAverage = bw.wickets > 0 ? parseFloat((bw.runsConceded / bw.wickets).toFixed(2)) : 0;
+    return {
+      player: enrichPlayer(bw._id),
+      totalWickets: bw.wickets || 0,
+      totalOversBowled: parseFloat((Math.floor(bw.ballsBowled / 6) + (bw.ballsBowled % 6) / 10).toFixed(1)),
+      economy, bowlingAverage,
+      dotBallsBowled: bw.dotBallsBowled || 0,
+      fiveWicketHauls: pm?.fiveWicketHauls || 0,
+    };
+  });
+
+  // Enrich fielding
+  const enrichedFielding = fieldingAgg.map(f => ({
+    player: enrichPlayer(f._id),
+    catches: f.catches || 0, stumpings: f.stumpings || 0, runOuts: f.runOuts || 0, total: f.total || 0,
+  }));
+
+  // MVP
+  const allIds = [...new Set([...battingAgg, ...bowlingAgg, ...fieldingAgg].map(e => e._id?.toString()).filter(Boolean))];
+  const mvp = allIds.map(pid => {
+    const b  = battingAgg.find(x => x._id?.toString() === pid);
+    const bw = bowlingAgg.find(x => x._id?.toString() === pid);
+    const f  = fieldingAgg.find(x => x._id?.toString() === pid);
+    const mvpScore = (b?.totalRuns || 0) + (bw?.wickets || 0) * 25 + ((f?.catches || 0) + (f?.stumpings || 0) + (f?.runOuts || 0)) * 10;
+    return { player: enrichPlayer(pid), totalRuns: b?.totalRuns || 0, totalWickets: bw?.wickets || 0, catches: f?.catches || 0, mvpScore };
+  }).filter(e => e.mvpScore > 0).sort((a, b) => b.mvpScore - a.mvpScore).slice(0, limit);
+
+  const desc = (arr, key) => [...arr].sort((a, b) => b[key] - a[key]).slice(0, limit);
+  const asc  = (arr, key) => [...arr].sort((a, b) => a[key] - b[key]).slice(0, limit);
+
+  return {
+    topScorers:        desc(enrichedBatting, 'totalRuns'),
+    topWicketTakers:   desc(enrichedBowling, 'totalWickets'),
+    bestBattingAverage: desc(enrichedBatting.filter(b => b.battingAverage > 0), 'battingAverage'),
+    bestEconomyRate:   asc(enrichedBowling.filter(b => b.economy > 0), 'economy'),
+    bestBowlingAverage: asc(enrichedBowling.filter(b => b.bowlingAverage > 0), 'bowlingAverage'),
+    mostFours:         desc(enrichedBatting, 'fours'),
+    mostSixes:         desc(enrichedBatting, 'sixes'),
+    mostFifties:       desc(enrichedBatting.filter(b => b.fifties > 0), 'fifties'),
+    mostHundreds:      desc(enrichedBatting.filter(b => b.hundreds > 0), 'hundreds'),
+    highestScores:     desc(enrichedBatting, 'highestScore'),
+    mostDotBalls:      desc(enrichedBowling, 'dotBallsBowled'),
+    wicketHauls:       desc(enrichedBowling.filter(b => b.fiveWicketHauls > 0), 'fiveWicketHauls'),
+    bestFielders:      enrichedFielding.slice(0, limit),
+    mvp,
+  };
+};
+
+/**
+ * ──────────────────────────────────────────
  *  LEADERBOARDS
  * ──────────────────────────────────────────
  */
 const getLeaderboard = async (clubId, { skip, limit }) => {
-  const [topScorers, topWicketTakers] = await Promise.all([
-    PlayerStatsCache.find({ clubId, totalRuns: { $gt: 0 } })
-      .sort({ totalRuns: -1 })
-      .skip(skip)
-      .limit(limit)
-      .populate('playerId', 'name role teamId')
-      .lean(),
-    PlayerStatsCache.find({ clubId, totalWickets: { $gt: 0 } })
-      .sort({ totalWickets: -1 })
-      .skip(skip)
-      .limit(limit)
-      .populate('playerId', 'name role teamId')
-      .lean(),
+  const statQueries = [
+    PlayerStatsCache.find({ clubId, totalRuns: { $gt: 0 } }).sort({ totalRuns: -1 }).skip(skip).limit(limit).populate('playerId', 'name role teamId').lean(),
+    PlayerStatsCache.find({ clubId, totalWickets: { $gt: 0 } }).sort({ totalWickets: -1 }).skip(skip).limit(limit).populate('playerId', 'name role teamId').lean(),
+    PlayerStatsCache.find({ clubId, battingAverage: { $gt: 0 }, totalInnings: { $gte: 3 } }).sort({ battingAverage: -1 }).limit(limit).populate('playerId', 'name role teamId').lean(),
+    PlayerStatsCache.find({ clubId, economy: { $gt: 0 }, totalOversBowled: { $gte: 2 } }).sort({ economy: 1 }).limit(limit).populate('playerId', 'name role teamId').lean(),
+    PlayerStatsCache.find({ clubId, fours: { $gt: 0 } }).sort({ fours: -1 }).limit(limit).populate('playerId', 'name role teamId').lean(),
+    PlayerStatsCache.find({ clubId, sixes: { $gt: 0 } }).sort({ sixes: -1 }).limit(limit).populate('playerId', 'name role teamId').lean(),
+    PlayerStatsCache.find({ clubId, fifties: { $gt: 0 } }).sort({ fifties: -1 }).limit(limit).populate('playerId', 'name role teamId').lean(),
+    PlayerStatsCache.find({ clubId, hundreds: { $gt: 0 } }).sort({ hundreds: -1 }).limit(limit).populate('playerId', 'name role teamId').lean(),
+    PlayerStatsCache.find({ clubId, highestScore: { $gt: 0 } }).sort({ highestScore: -1 }).limit(limit).populate('playerId', 'name role teamId').lean(),
+    PlayerStatsCache.find({ clubId, dotBallsBowled: { $gt: 0 } }).sort({ dotBallsBowled: -1 }).limit(limit).populate('playerId', 'name role teamId').lean(),
+    PlayerStatsCache.find({ clubId, fiveWicketHauls: { $gt: 0 } }).sort({ fiveWicketHauls: -1 }).limit(limit).populate('playerId', 'name role teamId').lean(),
+    PlayerStatsCache.find({ clubId, bowlingAverage: { $gt: 0 }, totalWickets: { $gte: 3 } }).sort({ bowlingAverage: 1 }).limit(limit).populate('playerId', 'name role teamId').lean(),
+  ];
+
+  const [
+    topScorers, topWicketTakers, bestBattingAvg, bestEconomy,
+    mostFours, mostSixes, mostFifties, mostHundreds,
+    highestScores, mostDotBalls, wicketHauls, bestBowlingAvg,
+  ] = await Promise.all(statQueries);
+
+  // Best fielders: sort by catches + stumpings + runOuts
+  const fielders = await PlayerStatsCache.aggregate([
+    { $match: { clubId: new (require('mongoose').Types.ObjectId)(clubId) } },
+    { $addFields: { fieldingTotal: { $add: ['$catches', '$stumpings', '$runOuts'] } } },
+    { $match: { fieldingTotal: { $gt: 0 } } },
+    { $sort: { fieldingTotal: -1 } },
+    { $limit: limit },
+    { $lookup: { from: 'players', localField: 'playerId', foreignField: '_id', as: 'playerInfo' } },
+    { $unwind: '$playerInfo' },
+    { $project: { playerId: 1, playerName: '$playerInfo.name', playerRole: '$playerInfo.role', playerTeamId: '$playerInfo.teamId', catches: 1, stumpings: 1, runOuts: 1, fieldingTotal: 1 } },
   ]);
 
-  // Enrich with team names
+  // MVP score: runs + wickets*25 + catches*10
+  const mvpList = await PlayerStatsCache.aggregate([
+    { $match: { clubId: new (require('mongoose').Types.ObjectId)(clubId) } },
+    { $addFields: { mvpScore: { $add: [{ $multiply: ['$totalRuns', 1] }, { $multiply: ['$totalWickets', 25] }, { $multiply: ['$catches', 10] }] } } },
+    { $match: { mvpScore: { $gt: 0 } } },
+    { $sort: { mvpScore: -1 } },
+    { $limit: limit },
+    { $lookup: { from: 'players', localField: 'playerId', foreignField: '_id', as: 'playerInfo' } },
+    { $unwind: '$playerInfo' },
+    { $project: { playerId: 1, playerName: '$playerInfo.name', playerRole: '$playerInfo.role', playerTeamId: '$playerInfo.teamId', totalRuns: 1, totalWickets: 1, catches: 1, mvpScore: 1 } },
+  ]);
+
+  // Collect all team IDs to enrich
   const teamIds = new Set();
-  [...topScorers, ...topWicketTakers].forEach((s) => {
-    if (s.playerId?.teamId) teamIds.add(s.playerId.teamId.toString());
-  });
+  const allEntries = [
+    ...topScorers, ...topWicketTakers, ...bestBattingAvg, ...bestEconomy,
+    ...mostFours, ...mostSixes, ...mostFifties, ...mostHundreds,
+    ...highestScores, ...mostDotBalls, ...wicketHauls, ...bestBowlingAvg,
+  ];
+  allEntries.forEach((s) => { if (s.playerId?.teamId) teamIds.add(s.playerId.teamId.toString()); });
+  fielders.forEach((f) => { if (f.playerTeamId) teamIds.add(f.playerTeamId.toString()); });
+  mvpList.forEach((m) => { if (m.playerTeamId) teamIds.add(m.playerTeamId.toString()); });
+
   const teams = await Team.find({ _id: { $in: [...teamIds] } }).select('name logo');
   const teamMap = {};
   teams.forEach((t) => { teamMap[t._id.toString()] = t; });
@@ -341,12 +560,44 @@ const getLeaderboard = async (clubId, { skip, limit }) => {
     battingAverage: entry.battingAverage,
     strikeRate: entry.strikeRate,
     economy: entry.economy,
+    bowlingAverage: entry.bowlingAverage,
+    fours: entry.fours,
+    sixes: entry.sixes,
+    fifties: entry.fifties,
+    hundreds: entry.hundreds,
+    highestScore: entry.highestScore,
+    dotBallsBowled: entry.dotBallsBowled,
+    fiveWicketHauls: entry.fiveWicketHauls,
     totalMatches: entry.totalMatches,
   });
 
   return {
     topScorers: topScorers.map(enrichPlayer),
     topWicketTakers: topWicketTakers.map(enrichPlayer),
+    bestBattingAverage: bestBattingAvg.map(enrichPlayer),
+    bestEconomyRate: bestEconomy.map(enrichPlayer),
+    bestBowlingAverage: bestBowlingAvg.map(enrichPlayer),
+    mostFours: mostFours.map(enrichPlayer),
+    mostSixes: mostSixes.map(enrichPlayer),
+    mostFifties: mostFifties.map(enrichPlayer),
+    mostHundreds: mostHundreds.map(enrichPlayer),
+    highestScores: highestScores.map(enrichPlayer),
+    mostDotBalls: mostDotBalls.map(enrichPlayer),
+    wicketHauls: wicketHauls.map(enrichPlayer),
+    bestFielders: fielders.map((f) => ({
+      player: { id: f.playerId, name: f.playerName, role: f.playerRole, team: teamMap[f.playerTeamId?.toString()] || null },
+      catches: f.catches,
+      stumpings: f.stumpings,
+      runOuts: f.runOuts,
+      total: f.fieldingTotal,
+    })),
+    mvp: mvpList.map((m) => ({
+      player: { id: m.playerId, name: m.playerName, role: m.playerRole, team: teamMap[m.playerTeamId?.toString()] || null },
+      totalRuns: m.totalRuns,
+      totalWickets: m.totalWickets,
+      catches: m.catches,
+      mvpScore: m.mvpScore,
+    })),
   };
 };
 
@@ -357,7 +608,7 @@ const getLeaderboard = async (clubId, { skip, limit }) => {
  */
 const getMVP = async (clubId) => {
   const result = await PlayerStatsCache.aggregate([
-    { $match: { clubId: require('mongoose').Types.ObjectId(clubId) } },
+    { $match: { clubId: new (require('mongoose').Types.ObjectId)(clubId) } },
     {
       $addFields: {
         mvpScore: {
@@ -396,11 +647,50 @@ const getMVP = async (clubId) => {
   return result;
 };
 
+/**
+ * ──────────────────────────────────────────
+ *  CLUB DASHBOARD AGGREGATE STATS
+ * ──────────────────────────────────────────
+ */
+const getClubDashboardStats = async (clubId) => {
+  const mongoose = require('mongoose');
+  const oid = new mongoose.Types.ObjectId(clubId);
+
+  const [aggregates] = await PlayerStatsCache.aggregate([
+    { $match: { clubId: oid } },
+    {
+      $group: {
+        _id: null,
+        totalRuns: { $sum: '$totalRuns' },
+        totalWickets: { $sum: '$totalWickets' },
+        totalBallsBowled: { $sum: '$totalBallsBowled' },
+        totalBallsFaced: { $sum: '$totalBallsFaced' },
+        totalFours: { $sum: '$fours' },
+        totalSixes: { $sum: '$sixes' },
+        totalCatches: { $sum: '$catches' },
+        playerCount: { $sum: 1 },
+      },
+    },
+  ]);
+
+  return {
+    totalRuns: aggregates?.totalRuns || 0,
+    totalWickets: aggregates?.totalWickets || 0,
+    totalBallsBowled: aggregates?.totalBallsBowled || 0,
+    totalFours: aggregates?.totalFours || 0,
+    totalSixes: aggregates?.totalSixes || 0,
+    totalCatches: aggregates?.totalCatches || 0,
+    playerCount: aggregates?.playerCount || 0,
+  };
+};
+
 module.exports = {
   getPlayerAnalytics,
   getMatchAnalytics,
   getTeamAnalytics,
   getLeaderboard,
+  getLeaderboardByTournament,
   getMVP,
   getHeadToHead,
+  getClubDashboardStats,
 };

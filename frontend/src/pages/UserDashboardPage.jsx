@@ -3,8 +3,10 @@ import { motion } from "framer-motion";
 import { useAppContext } from "@/hooks/useAppContext";
 import authService from "@/services/authService";
 import { toast } from "sonner";
-import { User, Settings, Lock, Loader2, LogOut } from "lucide-react";
+import { User, Lock, Loader2, LogOut, Mail, Phone, Shield } from "lucide-react";
 import PasswordInput from "@/components/PasswordInput";
+
+const inputClass = "w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-[#00f3ff]/40 focus:border-[#00f3ff]/50 transition-all";
 
 export default function UserDashboardPage() {
   const { user, logout } = useAppContext();
@@ -28,121 +30,156 @@ export default function UserDashboardPage() {
     finally { setSubmitting(false); }
   };
 
+  const initial = (user?.name || "U")[0].toUpperCase();
+
   return (
-    <div className="min-h-screen pt-28 pb-20 px-4 sm:px-6 max-w-3xl mx-auto">
-      {/* Header */}
-      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-10">
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-2xl font-black text-white shadow-lg shadow-emerald-500/25">
-            {(user?.name || "U")[0]}
+    <div className="relative min-h-screen pt-28 pb-20 px-4 sm:px-6 overflow-hidden">
+      {/* Neon blobs */}
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#00f3ff]/6 rounded-full blur-[130px] pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-[#bc13fe]/6 rounded-full blur-[130px] pointer-events-none" />
+
+      <div className="relative z-10 max-w-3xl mx-auto">
+        {/* Profile header */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-5 mb-10"
+        >
+          <div
+            className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-black text-black shadow-lg shrink-0"
+            style={{ background: "linear-gradient(135deg, #00f3ff, #bc13fe)", boxShadow: "0 0 20px rgba(0,243,255,0.3)" }}
+          >
+            {initial}
           </div>
           <div>
             <h1 className="text-2xl font-bold text-white">{user?.name || "User"}</h1>
-            <p className="text-sm text-gray-400">{user?.email}</p>
+            <p className="text-sm text-gray-500">{user?.email}</p>
           </div>
+        </motion.div>
+
+        {/* Tabs */}
+        <div className="flex gap-1 mb-8 bg-white/[0.04] border border-white/8 rounded-xl p-1 max-w-xs">
+          {[
+            { key: "profile", label: "Profile", icon: User },
+            { key: "security", label: "Security", icon: Lock },
+          ].map((t) => {
+            const Icon = t.icon;
+            const active = tab === t.key;
+            return (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${
+                  active
+                    ? "text-black font-bold shadow-lg"
+                    : "text-gray-400 hover:text-white"
+                }`}
+                style={active ? { background: "linear-gradient(135deg, #00f3ff, #bc13fe)", boxShadow: "0 0 12px rgba(0,243,255,0.3)" } : {}}
+              >
+                <Icon className="w-4 h-4" /> {t.label}
+              </button>
+            );
+          })}
         </div>
-      </motion.div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 mb-8 bg-white/5 rounded-xl p-1 max-w-xs">
-        {[
-          { key: "profile", label: "Profile", icon: User },
-          { key: "security", label: "Security", icon: Lock },
-        ].map((t) => {
-          const Icon = t.icon;
-          return (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${
-                tab === t.key ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/25" : "text-gray-400 hover:text-white"
-              }`}
+        {/* Profile Tab */}
+        {tab === "profile" && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+            <div
+              className="border border-white/8 rounded-2xl bg-white/[0.03] backdrop-blur-xl p-6"
+              style={{ boxShadow: "0 0 40px rgba(0,243,255,0.03)" }}
             >
-              <Icon className="w-4 h-4" /> {t.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Profile Tab */}
-      {tab === "profile" && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-          <div className="border border-white/5 rounded-2xl bg-white/[0.02] p-6 space-y-4">
-            <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider">Account Details</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Full Name</p>
-                <p className="text-white font-medium">{user?.name || "—"}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Email</p>
-                <p className="text-white font-medium">{user?.email || "—"}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Phone</p>
-                <p className="text-white font-medium">{user?.phone || "Not provided"}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Account Type</p>
-                <p className="text-white font-medium capitalize">{user?.role || "User"}</p>
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-5">Account Details</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#00f3ff]/10 flex items-center justify-center shrink-0">
+                    <User className="w-4 h-4 text-[#00f3ff]" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-0.5">Full Name</p>
+                    <p className="text-white font-medium">{user?.name || "—"}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#bc13fe]/10 flex items-center justify-center shrink-0">
+                    <Mail className="w-4 h-4 text-[#bc13fe]" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-0.5">Email</p>
+                    <p className="text-white font-medium">{user?.email || "—"}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#bc13fe]/10 flex items-center justify-center shrink-0">
+                    <Shield className="w-4 h-4 text-[#bc13fe]" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-0.5">Account Type</p>
+                    <p className="text-white font-medium capitalize">{user?.role || "User"}</p>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
 
-          <button
-            onClick={logout}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-colors text-sm font-medium cursor-pointer"
-          >
-            <LogOut className="w-4 h-4" /> Sign Out
-          </button>
-        </motion.div>
-      )}
+            <button
+              onClick={logout}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:border-red-500/40 transition-all text-sm font-medium cursor-pointer"
+            >
+              <LogOut className="w-4 h-4" /> Sign Out
+            </button>
+          </motion.div>
+        )}
 
-      {/* Security Tab */}
-      {tab === "security" && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          <div className="border border-white/5 rounded-2xl bg-white/[0.02] p-6">
-            <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-6">Change Password</h3>
-            <form onSubmit={handleChangePassword} className="space-y-4 max-w-sm">
-              <div>
-                <label className="block text-sm text-gray-300 mb-1">Current Password</label>
-                <PasswordInput
-                  value={passwords.currentPassword}
-                  onChange={(e) => setPasswords({ ...passwords, currentPassword: e.target.value })}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-300 mb-1">New Password</label>
-                <PasswordInput
-                  value={passwords.newPassword}
-                  onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-300 mb-1">Confirm New Password</label>
-                <PasswordInput
-                  value={passwords.confirmPassword}
-                  onChange={(e) => setPasswords({ ...passwords, confirmPassword: e.target.value })}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
-                  required
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-semibold rounded-xl px-6 py-3 transition-all flex items-center shadow-lg shadow-emerald-500/20 mt-2"
-              >
-                {submitting && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-                Update Password
-              </button>
-            </form>
-          </div>
-        </motion.div>
-      )}
+        {/* Security Tab */}
+        {tab === "security" && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+            <div
+              className="border border-white/8 rounded-2xl bg-white/[0.03] backdrop-blur-xl p-6"
+              style={{ boxShadow: "0 0 40px rgba(188,19,254,0.03)" }}
+            >
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-6">Change Password</h3>
+              <form onSubmit={handleChangePassword} className="space-y-4 max-w-sm">
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1.5">Current Password</label>
+                  <PasswordInput
+                    value={passwords.currentPassword}
+                    onChange={(e) => setPasswords({ ...passwords, currentPassword: e.target.value })}
+                    className={inputClass}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1.5">New Password</label>
+                  <PasswordInput
+                    value={passwords.newPassword}
+                    onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })}
+                    className={inputClass}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1.5">Confirm New Password</label>
+                  <PasswordInput
+                    value={passwords.confirmPassword}
+                    onChange={(e) => setPasswords({ ...passwords, confirmPassword: e.target.value })}
+                    className={inputClass}
+                    required
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-black transition-all mt-2 disabled:opacity-60 disabled:cursor-not-allowed hover:opacity-90"
+                  style={{ background: "linear-gradient(135deg, #00f3ff, #bc13fe)", boxShadow: "0 0 15px rgba(0,243,255,0.3)" }}
+                >
+                  {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Update Password
+                </button>
+              </form>
+            </div>
+          </motion.div>
+        )}
+      </div>
     </div>
   );
 }

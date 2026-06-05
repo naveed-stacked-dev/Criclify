@@ -35,6 +35,11 @@ const clubSchema = new mongoose.Schema(
     theme: {
       primaryColor: { type: String, default: '#1a73e8' },
       secondaryColor: { type: String, default: '#ffffff' },
+      template: {
+        type: String,
+        enum: ['classic', 'cricket-ball', 'stadium', 'pitch-lines', 'trophy-gold'],
+        default: 'classic',
+      },
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,

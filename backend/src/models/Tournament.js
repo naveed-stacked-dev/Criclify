@@ -75,6 +75,12 @@ const tournamentSchema = new mongoose.Schema(
       pointsPerTie: { type: Number, default: 1 },
       pointsPerLoss: { type: Number, default: 0 },
     },
+    groups: [
+      {
+        name: { type: String, trim: true }, // 'A', 'B', 'C', 'D', 'E'
+        teams: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Team' }],
+      },
+    ],
   },
   { timestamps: true }
 );

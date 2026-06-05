@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, Trophy, Calendar, Clock, BarChart3 } from "lucide-react";
+import { ChevronDown, Trophy, Calendar, Clock, BarChart3, Users, TrendingUp } from "lucide-react";
+import { Link, useParams } from "react-router-dom";
 import clubService from "../services/clubService";
+
+const GROUP_COLORS = { A: '#6366f1', B: '#10b981', C: '#f59e0b', D: '#ef4444', E: '#8b5cf6', F: '#06b6d4', G: '#ec4899', H: '#84cc16' };
 
 /**
  * TournamentOverview — Left panel (60%).
@@ -9,10 +12,12 @@ import clubService from "../services/clubService";
  * or Bracket / Timeline tabs for knockout.
  */
 export default function TournamentOverview({ clubId, tournaments }) {
+  const { slug } = useParams();
   const [selectedTournament, setSelectedTournament] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
   const [activeTab, setActiveTab] = useState("points");
-  const [pointsTable, setPointsTable] = useState([]);
+  const [activeGroupTab, setActiveGroupTab] = useState(null);
+  const [pointsData, setPointsData] = useState({ hasGroups: false, groups: [], all: [] });
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -33,10 +38,18 @@ export default function TournamentOverview({ clubId, tournaments }) {
       try {
         const [ptRes, mRes] = await Promise.all([
           clubService.getPointsTable(id).catch(() => null),
-          clubService.getMatchesByTournament(id, { limit: 100 }).catch(() => null),
+          clubService.getMatchesByTournament(id, { limit: 200 }).catch(() => null),
         ]);
 
-        setPointsTable(ptRes?.data?.data || []);
+        const ptData = ptRes?.data?.data || ptRes?.data || {};
+        if (Array.isArray(ptData)) {
+          setPointsData({ hasGroups: false, groups: [], all: ptData });
+          setActiveGroupTab(null);
+        } else {
+          setPointsData(ptData);
+          setActiveGroupTab(ptData.groups?.[0]?.groupName || null);
+        }
+
         const mData = mRes?.data?.data || mRes?.data?.matches || [];
         setMatches(Array.isArray(mData) ? mData : []);
       } catch { /* handled */ }
@@ -45,20 +58,22 @@ export default function TournamentOverview({ clubId, tournaments }) {
 
     fetchData();
 
-    // Set appropriate initial tab
     const isKnockout = selectedTournament.type === "knockout";
     setActiveTab(isKnockout ? "bracket" : "points");
   }, [selectedTournament]);
 
   const isKnockout = selectedTournament?.type === "knockout";
+  const hasGroups = pointsData.hasGroups && pointsData.groups?.length >= 2;
+
   const tabs = isKnockout
     ? [
         { key: "bracket", label: "Bracket", icon: BarChart3 },
         { key: "timeline", label: "Timeline", icon: Clock },
       ]
     : [
-        { key: "points", label: "Points Table", icon: Trophy },
+        { key: "points", label: hasGroups ? "Groups" : "Standings", icon: Trophy },
         { key: "fixtures", label: "Fixtures", icon: Calendar },
+        { key: "teams", label: "Teams", icon: Users },
         { key: "timeline", label: "Timeline", icon: Clock },
       ];
 
@@ -150,8 +165,15 @@ export default function TournamentOverview({ clubId, tournaments }) {
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
             >
-              {activeTab === "points" && <PointsTableView data={pointsTable} />}
-              {activeTab === "fixtures" && <FixturesView matches={matches} />}
+              {activeTab === "points" && (
+                hasGroups ? (
+                  <GroupStageView pointsData={pointsData} activeGroupTab={activeGroupTab} setActiveGroupTab={setActiveGroupTab} slug={slug} />
+                ) : (
+                  <PointsTableView data={pointsData.all} slug={slug} />
+                )
+              )}
+              {activeTab === "fixtures" && <FixturesView matches={matches} hasGroups={hasGroups} />}
+              {activeTab === "teams" && <TeamsAnalyticsView data={pointsData.all} hasGroups={hasGroups} groups={pointsData.groups} slug={slug} />}
               {activeTab === "timeline" && <TimelineView matches={matches} />}
               {activeTab === "bracket" && <BracketView matches={matches} tournament={selectedTournament} />}
             </motion.div>
@@ -162,22 +184,19 @@ export default function TournamentOverview({ clubId, tournaments }) {
   );
 }
 
-/* ─── Points Table ─── */
-function PointsTableView({ data }) {
-  if (!data?.length) {
-    return <EmptyState text="Points table not available yet" />;
-  }
-
+/* ─── Shared standings table ─── */
+function StandingsTable({ data, slug, accentColor }) {
+  const color = accentColor || "var(--club-primary)";
+  if (!data?.length) return <EmptyState text="No standings data yet" />;
   return (
     <div className="relative z-0 transform-gpu overflow-x-auto overscroll-contain club-scroll">
       <table className="w-full text-sm">
         <thead>
-          <tr className="text-gray-500 text-[11px] uppercase tracking-wider">
-            <th className="text-left py-2 px-2">#</th>
+          <tr className="text-xs uppercase tracking-wider" style={{ color: "var(--club-text-muted)" }}>
+            <th className="text-left py-2 px-2 w-8">#</th>
             <th className="text-left py-2 px-2">Team</th>
             <th className="text-center py-2 px-1">P</th>
-            <th className="text-center py-2 px-1">W</th>
-            <th className="text-center py-2 px-1 text-green-400">W</th>
+            <th className="text-center py-2 px-1 text-green-500">W</th>
             <th className="text-center py-2 px-1 text-red-400">L</th>
             <th className="text-center py-2 px-1">T</th>
             <th className="text-center py-2 px-1">NRR</th>
@@ -185,91 +204,259 @@ function PointsTableView({ data }) {
           </tr>
         </thead>
         <tbody>
-          {data.map((row, i) => (
-            <motion.tr
-              key={row.teamId || i}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.03 }}
-              className="border-t border-white/5 hover:bg-white/[0.03] transition-colors"
-            >
-              <td className="py-2.5 px-2 text-gray-500 font-medium">{i + 1}</td>
-              <td className="py-2.5 px-2">
-                <div className="flex items-center gap-2">
-                  {row.team?.logo ? (
-                    <img src={row.team.logo} alt="" className="w-6 h-6 rounded-md object-cover" />
-                  ) : (
-                    <div className="w-6 h-6 rounded-md bg-white/5 flex items-center justify-center text-[10px] font-bold text-gray-500">
-                      {(row.team?.name || "T")[0]}
-                    </div>
-                  )}
-                  <span className="font-semibold text-white text-xs truncate max-w-[120px]">
-                    {row.team?.name || "Unknown"}
-                  </span>
-                </div>
-              </td>
-              <td className="text-center py-2.5 px-1 text-gray-400">{row.played || 0}</td>
-              <td className="text-center py-2.5 px-1 text-green-400 font-medium">{row.won || 0}</td>
-              <td className="text-center py-2.5 px-1 text-green-400 font-medium">{row.won || 0}</td>
-              <td className="text-center py-2.5 px-1 text-red-400 font-medium">{row.lost || 0}</td>
-              <td className="text-center py-2.5 px-1 text-gray-400">{row.tied || 0}</td>
-              <td className="text-center py-2.5 px-1 text-gray-400 text-xs">
-                {row.nrr != null ? (row.nrr > 0 ? "+" : "") + row.nrr.toFixed(3) : "0.000"}
-              </td>
-              <td className="text-center py-2.5 px-1">
-                <span
-                  className="font-bold text-sm"
-                  style={{ color: "var(--club-primary)" }}
-                >
-                  {row.points || 0}
-                </span>
-              </td>
-            </motion.tr>
-          ))}
+          {data.map((row, i) => {
+            const team = row.teamId || row.team;
+            const isTop = i === 0;
+            return (
+              <motion.tr
+                key={team?._id || i}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.04 }}
+                className="border-t transition-colors"
+                style={{
+                  borderColor: "var(--club-border)",
+                  backgroundColor: isTop ? `${color}08` : undefined,
+                }}
+              >
+                <td className="py-2.5 px-2 font-medium text-xs" style={{ color: isTop ? color : "var(--club-text-muted)" }}>
+                  {i + 1}
+                </td>
+                <td className="py-2.5 px-2">
+                  <Link to={`/clubs/${slug}/teams/${team?._id || team?.id || ""}`} className="flex items-center gap-2 group/team w-fit">
+                    {team?.logo ? (
+                      <img src={team.logo} alt="" className="w-6 h-6 rounded-md object-cover" />
+                    ) : (
+                      <div className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold text-white" style={{ backgroundColor: color }}>
+                        {(team?.name || "T")[0]}
+                      </div>
+                    )}
+                    <span className="font-semibold text-xs truncate max-w-[110px] group-hover/team:underline" style={{ color: "var(--club-text-main)" }}>
+                      {team?.name || "Unknown"}
+                    </span>
+                  </Link>
+                </td>
+                <td className="text-center py-2.5 px-1" style={{ color: "var(--club-text-muted)" }}>{row.played || 0}</td>
+                <td className="text-center py-2.5 px-1 font-medium text-green-500">{row.won || 0}</td>
+                <td className="text-center py-2.5 px-1 font-medium text-red-400">{row.lost || 0}</td>
+                <td className="text-center py-2.5 px-1" style={{ color: "var(--club-text-muted)" }}>{row.tied || 0}</td>
+                <td className="text-center py-2.5 px-1 text-xs font-mono" style={{ color: (row.nrr || 0) >= 0 ? '#10b981' : '#ef4444' }}>
+                  {(row.nrr || 0) >= 0 ? '+' : ''}{(row.nrr || 0).toFixed(3)}
+                </td>
+                <td className="text-center py-2.5 px-1 font-bold text-base" style={{ color }}>{row.points || 0}</td>
+              </motion.tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
   );
 }
 
-/* ─── Fixtures ─── */
-function FixturesView({ matches }) {
-  const upcoming = matches.filter((m) => m.status === "upcoming" || m.status === "unscheduled");
-  if (!upcoming.length) return <EmptyState text="No upcoming fixtures" />;
+/* ─── Points Table (no groups) ─── */
+function PointsTableView({ data, slug }) {
+  if (!data?.length) return <EmptyState text="Points table not available yet" />;
+  return <StandingsTable data={data} slug={slug} />;
+}
+
+/* ─── Group Stage view with group tabs ─── */
+function GroupStageView({ pointsData, activeGroupTab, setActiveGroupTab, slug }) {
+  const groups = pointsData.groups || [];
+  if (!groups.length) return <EmptyState text="No group data available yet" />;
 
   return (
     <div className="space-y-3">
-      {upcoming.map((match, i) => (
-        <motion.div
-          key={match._id || i}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: i * 0.04 }}
-          className="glass-card p-3 flex items-center gap-3"
+      {/* Group tab pills */}
+      <div className="flex gap-2 flex-wrap">
+        {groups.map(g => {
+          const color = GROUP_COLORS[g.groupName] || "var(--club-primary)";
+          const isActive = activeGroupTab === g.groupName;
+          return (
+            <button
+              key={g.groupName}
+              onClick={() => setActiveGroupTab(g.groupName)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all"
+              style={isActive
+                ? { backgroundColor: color, color: '#fff', borderColor: color }
+                : { backgroundColor: `${color}12`, color, borderColor: `${color}30` }
+              }
+            >
+              <span className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-black" style={isActive ? { backgroundColor: 'rgba(255,255,255,0.25)' } : { backgroundColor: `${color}20` }}>
+                {g.groupName}
+              </span>
+              Group {g.groupName}
+              <span className="opacity-70">({g.teams?.length || 0})</span>
+            </button>
+          );
+        })}
+        <button
+          onClick={() => setActiveGroupTab('ALL')}
+          className="px-3 py-1.5 rounded-full text-xs font-bold border transition-all"
+          style={activeGroupTab === 'ALL'
+            ? { backgroundColor: 'var(--club-primary)', color: '#fff', borderColor: 'var(--club-primary)' }
+            : { color: 'var(--club-text-muted)', borderColor: 'var(--club-border)' }
+          }
         >
-          <div className="flex-1 flex items-center gap-2">
-            <TeamBadge team={match.teamA} />
-            <span className="text-xs text-gray-500 font-bold">vs</span>
-            <TeamBadge team={match.teamB} />
-          </div>
-          <div className="text-right text-[11px]">
-            {match.startTime ? (
-              <>
-                <p className="text-gray-400">
-                  {new Date(match.startTime).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                </p>
-                <p className="text-gray-600">
-                  {new Date(match.startTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
-                </p>
-              </>
-            ) : (
-              <p className="text-gray-600">TBD</p>
-            )}
-          </div>
-        </motion.div>
-      ))}
+          Overall
+        </button>
+      </div>
+
+      {/* Content */}
+      <AnimatePresence mode="wait">
+        {activeGroupTab === 'ALL' ? (
+          <motion.div key="all" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <StandingsTable data={pointsData.all} slug={slug} />
+          </motion.div>
+        ) : (
+          groups.filter(g => g.groupName === activeGroupTab).map(g => (
+            <motion.div key={g.groupName} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <StandingsTable data={g.teams} slug={slug} accentColor={GROUP_COLORS[g.groupName]} />
+            </motion.div>
+          ))
+        )}
+      </AnimatePresence>
     </div>
   );
+}
+
+/* ─── Teams tab — clickable cards that open team detail page ─── */
+function TeamsAnalyticsView({ data = [], hasGroups, groups = [], slug }) {
+  if (!data.length) return <EmptyState text="No team data yet." />;
+
+  const renderTeamCard = (row, idx) => {
+    const team = row.teamId || row.team;
+    const teamId = team?._id || team?.id || "";
+    const winPct = row.played > 0 ? Math.round((row.won / row.played) * 100) : 0;
+    return (
+      <motion.div
+        key={teamId || idx}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: idx * 0.05 }}
+        whileHover={{ scale: 1.02 }}
+      >
+        <Link to={`/clubs/${slug}/teams/${teamId}`} className="block glass-card p-4 space-y-2.5 hover:border-[var(--club-primary)] transition-colors" style={{ borderColor: "var(--club-border)" }}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              {team?.logo ? (
+                <img src={team.logo} alt="" className="w-9 h-9 rounded-xl object-cover shrink-0" />
+              ) : (
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-white shrink-0" style={{ backgroundColor: "var(--club-primary)" }}>
+                  {(team?.name || 'T')[0]}
+                </div>
+              )}
+              <div>
+                <p className="font-bold text-sm" style={{ color: "var(--club-text-main)" }}>{team?.name || 'Unknown'}</p>
+                <p className="text-[10px]" style={{ color: "var(--club-text-muted)" }}>{row.played || 0} matches played</p>
+              </div>
+            </div>
+            <div className="text-right shrink-0">
+              <span className="text-lg font-black" style={{ color: "var(--club-primary)" }}>{row.points || 0}</span>
+              <span className="text-[10px] ml-0.5" style={{ color: "var(--club-text-muted)" }}>pts</span>
+            </div>
+          </div>
+          {row.played > 0 && (
+            <div>
+              <div className="flex justify-between text-[10px] mb-1" style={{ color: "var(--club-text-muted)" }}>
+                <span>Win rate</span><span className="font-semibold">{winPct}%</span>
+              </div>
+              <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: "var(--club-border)" }}>
+                <div className="h-full rounded-full" style={{ width: `${winPct}%`, backgroundColor: "var(--club-primary)" }} />
+              </div>
+            </div>
+          )}
+          <p className="text-[10px] font-medium" style={{ color: "var(--club-primary)" }}>View team details →</p>
+        </Link>
+      </motion.div>
+    );
+  };
+
+  if (hasGroups && groups.length) {
+    return (
+      <div className="space-y-5">
+        {groups.map(g => (
+          <div key={g.groupName}>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-6 h-6 rounded-full text-[10px] font-black flex items-center justify-center text-white" style={{ backgroundColor: GROUP_COLORS[g.groupName] || "var(--club-primary)" }}>{g.groupName}</span>
+              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--club-text-muted)" }}>Group {g.groupName}</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {(g.teams || []).map((row, i) => renderTeamCard(row, i))}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {data.map((row, i) => renderTeamCard(row, i))}
+    </div>
+  );
+}
+
+/* ─── Fixtures ─── */
+function FixturesView({ matches, hasGroups }) {
+  const allFixtures = matches.filter((m) => m.status === "upcoming" || m.status === "unscheduled");
+  if (!allFixtures.length) return <EmptyState text="No upcoming fixtures" />;
+
+  const renderMatch = (match, i) => (
+    <motion.div
+      key={match._id || i}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: i * 0.03 }}
+      className="glass-card p-3 flex items-center gap-3"
+    >
+      {match.matchLabel && (
+        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0" style={{ backgroundColor: "var(--club-surface-2)", color: "var(--club-text-muted)" }}>
+          {match.matchLabel}
+        </span>
+      )}
+      <div className="flex-1 flex items-center gap-2 min-w-0">
+        <TeamBadge team={match.teamA} />
+        <span className="text-[10px] font-bold shrink-0" style={{ color: "var(--club-text-muted)" }}>vs</span>
+        <TeamBadge team={match.teamB} />
+      </div>
+      <div className="text-right text-[10px] shrink-0" style={{ color: "var(--club-text-muted)" }}>
+        {match.startTime ? (
+          <>
+            <p>{new Date(match.startTime).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</p>
+            <p>{new Date(match.startTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</p>
+          </>
+        ) : <p>TBD</p>}
+      </div>
+    </motion.div>
+  );
+
+  if (hasGroups) {
+    const groups = {};
+    allFixtures.forEach(m => {
+      const g = m.matchGroup || 'Other';
+      if (!groups[g]) groups[g] = [];
+      groups[g].push(m);
+    });
+    return (
+      <div className="space-y-4">
+        {Object.entries(groups).map(([gName, gMatches]) => {
+          const color = GROUP_COLORS[gName] || "var(--club-primary)";
+          return (
+            <div key={gName}>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-5 h-5 rounded-full text-[9px] font-black flex items-center justify-center text-white" style={{ backgroundColor: color }}>{gName}</span>
+                <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--club-text-muted)" }}>Group {gName}</span>
+                <span className="text-[10px]" style={{ color: "var(--club-text-muted)" }}>({gMatches.length} matches)</span>
+              </div>
+              <div className="space-y-2">{gMatches.map((m, i) => renderMatch(m, i))}</div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  return <div className="space-y-2">{allFixtures.map((m, i) => renderMatch(m, i))}</div>;
 }
 
 /* ─── Timeline ─── */
@@ -615,15 +802,15 @@ function BracketNode({ match }) {
 function TeamBadge({ team, small }) {
   const size = small ? "w-5 h-5" : "w-6 h-6";
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-1.5 min-w-0">
       {team?.logo ? (
-        <img src={team.logo} alt="" className={`${size} rounded object-cover`} />
+        <img src={team.logo} alt="" className={`${size} rounded object-cover shrink-0`} />
       ) : (
-        <div className={`${size} rounded bg-white/5 flex items-center justify-center text-[8px] font-bold text-gray-500`}>
+        <div className={`${size} rounded flex items-center justify-center text-[8px] font-bold text-white shrink-0`} style={{ backgroundColor: "var(--club-primary)" }}>
           {(team?.name || "?")[0]}
         </div>
       )}
-      <span className={`${small ? "text-[11px]" : "text-xs"} font-medium text-white truncate max-w-[80px]`}>
+      <span className={`${small ? "text-[10px]" : "text-xs"} font-semibold truncate max-w-[80px]`} style={{ color: "var(--club-text-main)" }}>
         {team?.name || "TBD"}
       </span>
     </div>
@@ -632,8 +819,8 @@ function TeamBadge({ team, small }) {
 
 function EmptyState({ text }) {
   return (
-    <div className="flex flex-col items-center justify-center py-12 text-gray-600">
-      <Trophy className="w-10 h-10 mb-3 opacity-20" />
+    <div className="flex flex-col items-center justify-center py-12" style={{ color: "var(--club-text-muted)" }}>
+      <Trophy className="w-10 h-10 mb-3 opacity-30" />
       <p className="text-sm">{text}</p>
     </div>
   );

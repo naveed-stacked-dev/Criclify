@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppContext } from "@/hooks/useAppContext";
 import clubService from "@/services/clubService";
@@ -238,6 +239,9 @@ export default function TeamsPage() {
                             <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="w-4 h-4" /></Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            <DropdownMenuItem asChild>
+                              <Link to={`/teams/${team._id || team.id}`} className="flex items-center"><ChevronRight className="w-4 h-4 mr-2" /> View Details</Link>
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => openEdit(team)}><Pencil className="w-4 h-4 mr-2" /> Edit</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => fetchRoster(team)}><Users className="w-4 h-4 mr-2" /> View Players</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => openDelete(team)} className="text-destructive focus:text-destructive"><Trash2 className="w-4 h-4 mr-2" /> Delete</DropdownMenuItem>

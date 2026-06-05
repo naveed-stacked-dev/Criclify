@@ -54,6 +54,12 @@ export default function PlayersPage() {
 
   const [form, setForm] = useState({ name: "", role: "batsman", jerseyNumber: "", phone: "", photoUrl: "", team: "", battingStyle: "right-hand", bowlingStyle: "" });
 
+  const onNameChange = (value, field = "name") =>
+    setForm((f) => ({ ...f, [field]: value.replace(/[^a-zA-Z\s'-]/g, "") }));
+
+  const onPhoneChange = (value) =>
+    setForm((f) => ({ ...f, phone: value.replace(/[^\d+]/g, "") }));
+
   useEffect(() => {
     const fetch = async () => {
       try {
@@ -177,7 +183,7 @@ export default function PlayersPage() {
   const filtered = players.filter((p) => {
     const matchesSearch = (p.name || "").toLowerCase().includes(search.toLowerCase()) ||
                           (p.role || "").toLowerCase().includes(search.toLowerCase());
-    
+
     let matchesTeam = true;
     if (filterTeam !== "all") {
       if (filterTeam === "unassigned") {
@@ -186,9 +192,17 @@ export default function PlayersPage() {
         matchesTeam = (p.teamId?._id || p.teamId) === filterTeam;
       }
     }
-    
+
     return matchesSearch && matchesTeam;
   });
+
+  const rosterCountByTeam = players.reduce((acc, p) => {
+    const tid = p.teamId?._id || p.teamId;
+    if (tid) acc[tid] = (acc[tid] || 0) + 1;
+    return acc;
+  }, {});
+
+  const ROSTER_LIMIT = 35;
 
   const getRoleBadge = (role) => {
     const colors = { batsman: "text-blue-500 bg-blue-500/10", bowler: "text-red-500 bg-red-500/10", allrounder: "text-violet-500 bg-violet-500/10", wicketkeeper: "text-amber-500 bg-amber-500/10" };
@@ -200,7 +214,10 @@ export default function PlayersPage() {
       <motion.div variants={item} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2"><UserCircle className="w-6 h-6" style={{ color: themeColor }} /> Players</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage player database and view stats</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Manage player database and view stats
+            {players.length > 0 && <span className="ml-2 font-medium" style={{ color: themeColor }}>({players.length} players)</span>}
+          </p>
         </div>
         <Button onClick={() => { setForm({ name: "", role: "batsman", jerseyNumber: "", phone: "", photoUrl: "", team: "" }); setShowCreate(true); }} disabled={!selectedClub} style={{ backgroundColor: themeColor, color: '#fff' }}>
           <Plus className="w-4 h-4 mr-2" /> Add Player
@@ -243,7 +260,10 @@ export default function PlayersPage() {
                   <TableRow>
                     <TableHead>Player</TableHead>
                     <TableHead>Role</TableHead>
-                    <TableHead>Team</TableHead>
+                    <TableHead>
+                      Team
+                      <span className="ml-2 text-xs font-normal text-muted-foreground">(assigned/capacity)</span>
+                    </TableHead>
                     <TableHead>Jersey</TableHead>
                     <TableHead className="w-12"></TableHead>
                   </TableRow>
@@ -265,7 +285,14 @@ export default function PlayersPage() {
                       <TableCell>
                         <Badge className={`capitalize text-xs ${getRoleBadge(p.role)}`}>{p.role || "—"}</Badge>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{p.teamId?.name || "Unassigned"}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {p.teamId?.name || "Unassigned"}
+                        {p.teamId && (
+                          <span className={`ml-1.5 text-xs font-medium ${rosterCountByTeam[p.teamId?._id || p.teamId] >= ROSTER_LIMIT ? "text-destructive" : "text-muted-foreground"}`}>
+                            ({rosterCountByTeam[p.teamId?._id || p.teamId] || 0}/{ROSTER_LIMIT})
+                          </span>
+                        )}
+                      </TableCell>
                       <TableCell><Badge variant="outline" className="font-mono text-xs">#{p.jerseyNumber || "—"}</Badge></TableCell>
                       <TableCell>
                         <DropdownMenu>
@@ -292,7 +319,10 @@ export default function PlayersPage() {
           <DialogHeader><DialogTitle>Add Player</DialogTitle><DialogDescription>Add a new player to the club</DialogDescription></DialogHeader>
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>Name</Label><Input placeholder="Player name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
+              <div className="space-y-2">
+                <Label>Name</Label>
+                <Input placeholder="Player name" value={form.name} onChange={(e) => onNameChange(e.target.value)} />
+              </div>
               <div className="space-y-2">
                 <Label>Role</Label>
                 <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v })}>
@@ -303,7 +333,10 @@ export default function PlayersPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2"><Label>Jersey #</Label><Input placeholder="10" value={form.jerseyNumber} onChange={(e) => setForm({ ...form, jerseyNumber: e.target.value })} /></div>
-              <div className="space-y-2"><Label>Phone</Label><Input placeholder="+91..." value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
+              <div className="space-y-2">
+                <Label>Phone</Label>
+                <Input placeholder="+91..." value={form.phone} onChange={(e) => onPhoneChange(e.target.value)} inputMode="tel" />
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               {(form.role === "batsman" || form.role === "allrounder" || form.role === "wicketkeeper") && (
@@ -363,12 +396,18 @@ export default function PlayersPage() {
           <DialogHeader><DialogTitle>Edit Player</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
+              <div className="space-y-2">
+                <Label>Name</Label>
+                <Input value={form.name} onChange={(e) => onNameChange(e.target.value)} />
+              </div>
               <div className="space-y-2"><Label>Role</Label><Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{PLAYER_ROLES.map((r) => <SelectItem key={r} value={r} className="capitalize">{r}</SelectItem>)}</SelectContent></Select></div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2"><Label>Jersey #</Label><Input value={form.jerseyNumber} onChange={(e) => setForm({ ...form, jerseyNumber: e.target.value })} /></div>
-              <div className="space-y-2"><Label>Phone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
+              <div className="space-y-2">
+                <Label>Phone</Label>
+                <Input value={form.phone} onChange={(e) => onPhoneChange(e.target.value)} inputMode="tel" />
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               {(form.role === "batsman" || form.role === "allrounder" || form.role === "wicketkeeper") && (
@@ -444,14 +483,18 @@ export default function PlayersPage() {
           ) : (
             <div className="grid grid-cols-2 gap-4 py-4">
               {[
-                { label: "Matches", value: stats.matches || 0 },
-                { label: "Runs", value: stats.runs || 0 },
-                { label: "Batting Avg", value: stats.battingAverage?.toFixed(2) || "0.00" },
-                { label: "Strike Rate", value: stats.strikeRate?.toFixed(2) || "0.00" },
-                { label: "Wickets", value: stats.wickets || 0 },
-                { label: "Bowl Avg", value: stats.bowlingAverage?.toFixed(2) || "0.00" },
-                { label: "50s", value: stats.fifties || 0 },
-                { label: "100s", value: stats.hundreds || 0 },
+                { label: "Matches", value: stats.totalMatches ?? stats.matches ?? 0 },
+                { label: "Runs", value: stats.batting?.totalRuns ?? stats.runs ?? 0 },
+                { label: "Batting Avg", value: (stats.batting?.battingAverage ?? stats.battingAverage)?.toFixed(2) || "0.00" },
+                { label: "Strike Rate", value: (stats.batting?.strikeRate ?? stats.strikeRate)?.toFixed(2) || "0.00" },
+                { label: "Highest Score", value: stats.batting?.highestScore ?? 0 },
+                { label: "Fours / Sixes", value: `${stats.batting?.fours ?? 0} / ${stats.batting?.sixes ?? 0}` },
+                { label: "50s / 100s", value: `${stats.batting?.fifties ?? stats.fifties ?? 0} / ${stats.batting?.hundreds ?? stats.hundreds ?? 0}` },
+                { label: "Wickets", value: stats.bowling?.totalWickets ?? stats.wickets ?? 0 },
+                { label: "Bowl Avg", value: (stats.bowling?.bowlingAverage ?? stats.bowlingAverage)?.toFixed(2) || "0.00" },
+                { label: "Economy", value: (stats.bowling?.economy ?? stats.economy)?.toFixed(2) || "0.00" },
+                { label: "Best Bowling", value: stats.bowling?.bestBowling || "—" },
+                { label: "Catches / Stumpings", value: `${stats.fielding?.catches ?? 0} / ${stats.fielding?.stumpings ?? 0}` },
               ].map((s) => (
                 <div key={s.label} className="p-3 rounded-lg bg-secondary/30 text-center">
                   <p className="text-xs text-muted-foreground uppercase tracking-wider">{s.label}</p>

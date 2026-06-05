@@ -35,6 +35,8 @@ export default function ClubLayout() {
     };
   }, [club]);
 
+  const template = club?.theme?.template || "classic";
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "var(--club-bg)" }}>
@@ -70,7 +72,11 @@ export default function ClubLayout() {
   }
 
   return (
-    <div className="min-h-screen text-[#0f172a] transition-colors duration-500" style={{ backgroundColor: "var(--club-bg)" }}>
+    <div
+      className="min-h-screen transition-colors duration-500"
+      data-theme={template}
+      style={{ backgroundColor: "var(--club-bg)", color: "var(--club-text-main)" }}
+    >
       <ClubHero club={club} tournaments={tournaments} />
       <ClubNavbar club={club} />
       <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20">

@@ -24,14 +24,19 @@ export default function ClubsPage() {
   }, []);
 
   return (
-    <div className="min-h-screen pt-28 pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+    <div className="relative min-h-screen pt-28 pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
+      {/* Neon blobs */}
+      <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-[#00f3ff]/5 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-[#bc13fe]/5 rounded-full blur-[140px] pointer-events-none" />
+
+      <div className="relative z-10 max-w-7xl mx-auto">
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-16">
-        <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium mb-4">
+        <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#00f3ff]/10 border border-[#00f3ff]/20 text-[#00f3ff] text-xs font-medium mb-4">
           <Trophy className="w-3.5 h-3.5" /> Active Clubs
         </span>
         <h1 className="text-4xl sm:text-5xl font-black tracking-tight">
-          Explore <span className="bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-teal-400">Clubs</span>
+          Explore <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#00f3ff] to-[#bc13fe]">Clubs</span>
         </h1>
         <p className="text-gray-400 mt-3 max-w-lg mx-auto">
           Discover cricket clubs, follow live matches, and track your favorite teams
@@ -41,7 +46,7 @@ export default function ClubsPage() {
       {/* Grid */}
       {loading ? (
         <div className="flex justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+          <Loader2 className="w-8 h-8 animate-spin text-[#00f3ff]" />
         </div>
       ) : clubs.length === 0 ? (
         <div className="text-center py-20 text-gray-500">
@@ -117,7 +122,7 @@ export default function ClubsPage() {
                   <div className="p-4 pt-6">
                     <div className="flex items-start justify-between">
                       <div className="min-w-0 flex-1">
-                        <h3 className="text-base font-bold text-white group-hover:text-emerald-400 transition-colors truncate">
+                        <h3 className="text-base font-bold text-white group-hover:text-[#00f3ff] transition-colors truncate">
                           {club.name}
                         </h3>
                         {club.description && (
@@ -156,6 +161,7 @@ export default function ClubsPage() {
           })}
         </motion.div>
       )}
+      </div>
     </div>
   );
 }

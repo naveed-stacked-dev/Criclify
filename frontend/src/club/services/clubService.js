@@ -33,6 +33,7 @@ const clubService = {
   // ─── Teams & Players ───
   getTeamsByClub: (clubId, params) =>
     apiClient.get(`/public/teams/club/${clubId}`, { params }),
+  getTeam: (id) => apiClient.get(`/public/teams/${id}`),
   getPlayersByClub: (clubId, params) =>
     apiClient.get(`/public/players/club/${clubId}`, { params }),
   getPlayer: (id) => apiClient.get(`/public/players/${id}`),

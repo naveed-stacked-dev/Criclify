@@ -26,6 +26,7 @@ router.get('/matches/:id/events', publicController.getMatchEvents);
 
 // ─── Teams & Players ───
 router.get('/teams/club/:clubId', paginate, publicController.getTeamsByClub);
+router.get('/teams/:id', publicController.getTeamPublic);
 router.get('/players/club/:clubId', paginate, publicController.getPlayersByClub);
 router.get('/players/:id', publicController.getPlayerById);
 

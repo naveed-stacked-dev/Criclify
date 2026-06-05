@@ -17,7 +17,7 @@ app.use(
     credentials: true,
   })
 );
- 
+
 // ─── Rate Limiting ───
 const limiter = rateLimit({
   windowMs: config.rateLimit.windowMs,
@@ -49,7 +49,7 @@ app.use('/api', routes);
 app.get('/', (req, res) => {
   res.json({
     success: true,
-    message: '🏏 Club Arena X Management Platform API',
+    message: '🏏 CricArena Management Platform API',
     version: '1.0.0',
     docs: '/api/health',
   });

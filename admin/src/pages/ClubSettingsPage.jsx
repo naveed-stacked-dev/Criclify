@@ -12,10 +12,48 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Settings, Palette, ImageIcon, Loader2, CheckCircle2, Trophy } from "lucide-react";
+import { Settings, Palette, ImageIcon, Loader2, CheckCircle2, Trophy, LayoutTemplate } from "lucide-react";
 
 const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } };
 const item = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } };
+
+const PORTAL_TEMPLATES = [
+  {
+    key: "classic",
+    label: "Classic White",
+    desc: "Clean minimal white. Professional and timeless.",
+    emoji: "⚪",
+    preview: { bg: "#f8fafc", surface: "#ffffff", text: "#0f172a", border: "#e2e8f0", accent: "#1a73e8", patternColor: "transparent" },
+  },
+  {
+    key: "cricket-ball",
+    label: "Cricket Ball",
+    desc: "White with red cricket ball stitch patterns.",
+    emoji: "🔴",
+    preview: { bg: "#fffbfb", surface: "#ffffff", text: "#1c0505", border: "#fecaca", accent: "#dc2626", patternColor: "#dc2626" },
+  },
+  {
+    key: "stadium",
+    label: "Stadium Lights",
+    desc: "White with dramatic floodlight glow from above.",
+    emoji: "🏟️",
+    preview: { bg: "#f9fafb", surface: "#ffffff", text: "#111827", border: "#d1d5db", accent: "#6366f1", patternColor: "#6366f1" },
+  },
+  {
+    key: "pitch-lines",
+    label: "Pitch Lines",
+    desc: "White with cricket ground stripe markings.",
+    emoji: "🟢",
+    preview: { bg: "#f7fdf8", surface: "#ffffff", text: "#052e16", border: "#bbf7d0", accent: "#15803d", patternColor: "#22c55e" },
+  },
+  {
+    key: "trophy-gold",
+    label: "Trophy Gold",
+    desc: "White with champion gold star accents.",
+    emoji: "🏆",
+    preview: { bg: "#fffdf5", surface: "#ffffff", text: "#1c1408", border: "#fde68a", accent: "#f59e0b", patternColor: "#f59e0b" },
+  },
+];
 
 const PRESET_COLORS = [
   "#7c3aed", "#6366f1", "#3b82f6", "#06b6d4", "#14b8a6",
@@ -32,6 +70,7 @@ export default function ClubSettingsPage() {
   const [color, setColor] = useState(themeColor || "#7c3aed");
   const [primaryColor, setPrimaryColor] = useState(clubTheme?.primaryColor || "#1a73e8");
   const [secondaryColor, setSecondaryColor] = useState(clubTheme?.secondaryColor || "#ffffff");
+  const [template, setTemplate] = useState(clubTheme?.template || "classic");
   const [logo, setLogo] = useState(clubLogo);
   const [banner, setBanner] = useState(clubBanner);
   const [savingTheme, setSavingTheme] = useState(false);
@@ -54,7 +93,7 @@ export default function ClubSettingsPage() {
       appendImageField(formData, "bannerUrl", banner);
 
       await clubService.update(clubId, formData);
-      await clubService.updateTheme(clubId, { primaryColor, secondaryColor });
+      await clubService.updateTheme(clubId, { primaryColor, secondaryColor, template });
       toast.success("Settings saved successfully!");
       loadClubData(clubId);
     } catch {
@@ -120,6 +159,76 @@ export default function ClubSettingsPage() {
               PRIMARY BUTTON
             </div>
           </div>
+        </Card>
+      </motion.div>
+
+      {/* Portal Design Template */}
+      <motion.div variants={item}>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <LayoutTemplate className="w-4 h-4" style={{ color: themeColor }} /> Portal Design Template
+            </CardTitle>
+            <CardDescription>Choose the look and feel of your public club portal</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {PORTAL_TEMPLATES.map((t) => {
+                const isSelected = template === t.key;
+                return (
+                  <button
+                    key={t.key}
+                    onClick={() => setTemplate(t.key)}
+                    className="relative text-left rounded-xl border-2 overflow-hidden transition-all hover:scale-[1.02] cursor-pointer"
+                    style={{
+                      borderColor: isSelected ? themeColor : "hsl(var(--border))",
+                      boxShadow: isSelected ? `0 0 0 3px ${themeColor}25` : "none",
+                    }}
+                  >
+                    {/* Mini preview */}
+                    <div
+                      className="h-20 relative flex flex-col justify-between p-2.5 overflow-hidden"
+                      style={{ backgroundColor: t.preview.bg }}
+                    >
+                      {/* Background glow effect */}
+                      <div className="absolute inset-0 pointer-events-none" style={{
+                        background: `radial-gradient(ellipse 80% 50% at 50% 0%, ${t.preview.patternColor}18, transparent 70%)`
+                      }} />
+                      {/* Fake navbar */}
+                      <div className="relative flex items-center gap-1.5">
+                        <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: t.preview.accent }} />
+                        <div className="h-1.5 rounded-full w-8" style={{ backgroundColor: t.preview.text, opacity: 0.25 }} />
+                        <div className="ml-auto flex gap-1">
+                          {[1,2,3].map(n => <div key={n} className="h-1.5 rounded-full w-4" style={{ backgroundColor: t.preview.text, opacity: 0.15 }} />)}
+                        </div>
+                      </div>
+                      {/* Fake cards */}
+                      <div className="relative flex gap-1.5">
+                        <div className="flex-1 h-7 rounded border" style={{ backgroundColor: t.preview.surface, borderColor: t.preview.border, borderTopWidth: '2px', borderTopColor: t.preview.patternColor === "transparent" ? t.preview.border : `${t.preview.patternColor}40` }} />
+                        <div className="flex-1 h-7 rounded border" style={{ backgroundColor: t.preview.surface, borderColor: t.preview.border }} />
+                      </div>
+                      {/* Bottom accent bar */}
+                      <div className="relative h-1 rounded-full" style={{ backgroundColor: t.preview.accent, opacity: 0.7 }} />
+                    </div>
+                    {/* Label */}
+                    <div className="px-3 py-2 bg-card border-t border-border/50">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-semibold flex items-center gap-1.5">
+                            <span>{t.emoji}</span> {t.label}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">{t.desc}</p>
+                        </div>
+                        {isSelected && (
+                          <CheckCircle2 className="w-4 h-4 shrink-0 ml-2" style={{ color: themeColor }} />
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </CardContent>
         </Card>
       </motion.div>
 

@@ -9,6 +9,7 @@ import SuperAdminDashboard from "@/pages/SuperAdminDashboard";
 import ClubManagerDashboard from "@/pages/ClubManagerDashboard";
 import ClubsPage from "@/pages/ClubsPage";
 import TeamsPage from "@/pages/TeamsPage";
+import TeamDetailPage from "@/pages/TeamDetailPage";
 import PlayersPage from "@/pages/PlayersPage";
 import PlayerProfilePage from "@/pages/PlayerProfilePage";
 import TournamentsPage from "@/pages/TournamentsPage";
@@ -23,6 +24,7 @@ import ProfilePage from "@/pages/ProfilePage";
 import SponsorsPage from "@/pages/SponsorsPage";
 import GalleryPage from "@/pages/GalleryPage";
 import PostsPage from "@/pages/PostsPage";
+import DocumentsPage from "@/pages/DocumentsPage";
 
 const ALL_ADMIN_ROLES = ["superAdmin", "superadmin", "clubManager", "club_manager", "matchManager", "match_manager"];
 const MANAGER_ROLES = ["superAdmin", "superadmin", "clubManager", "club_manager"];
@@ -47,11 +49,11 @@ export default function App() {
 
   return (
     <Routes>
-      {/* Public */}
-      <Route
-        path="/login"
-        element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />}
-      />
+      {/* Public — separate login per role */}
+      <Route path="/login" element={<Navigate to="/superadmin/login" replace />} />
+      <Route path="/superadmin/login" element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage role="superadmin" />} />
+      <Route path="/clubmanager/login" element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage role="club-manager" />} />
+      <Route path="/scorer/login" element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage role="match-manager" />} />
 
       {/* Protected Admin Layout */}
       <Route
@@ -78,6 +80,9 @@ export default function App() {
         } />
         <Route path="teams" element={
           <ProtectedRoute allowedRoles={MANAGER_ROLES}><TeamsPage /></ProtectedRoute>
+        } />
+        <Route path="teams/:teamId" element={
+          <ProtectedRoute allowedRoles={MANAGER_ROLES}><TeamDetailPage /></ProtectedRoute>
         } />
         <Route path="players" element={
           <ProtectedRoute allowedRoles={MANAGER_ROLES}><PlayersPage /></ProtectedRoute>
@@ -115,6 +120,9 @@ export default function App() {
         } />
         <Route path="posts" element={
           <ProtectedRoute allowedRoles={MANAGER_ROLES}><PostsPage /></ProtectedRoute>
+        } />
+        <Route path="documents" element={
+          <ProtectedRoute allowedRoles={MANAGER_ROLES}><DocumentsPage /></ProtectedRoute>
         } />
 
         {/* Club Settings (ClubManager) */}

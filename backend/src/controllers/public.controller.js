@@ -10,6 +10,7 @@ const { buildPaginationResponse } = require('../middlewares/pagination.middlewar
 const Match = require('../models/Match');
 const Tournament = require('../models/Tournament');
 const MatchSummary = require('../models/MatchSummary');
+const Player = require('../models/Player');
 const { getCachedSummary } = require('../services/liveScoreRedis');
 
 // We re-export only the reads that are publicly accessible without authentication.
@@ -254,6 +255,43 @@ const getPointsTable = async (req, res, next) => {
   }
 };
 
+const getTeamPublic = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const [team, playerCount, players, matches] = await Promise.all([
+      teamService.getTeamById(id),
+      Player.countDocuments({ teamId: id }),
+      Player.find({ teamId: id }).select('name role jerseyNumber photo').sort({ name: 1 }).lean(),
+      Match.find({ $or: [{ teamA: id }, { teamB: id }] })
+        .populate('teamA', 'name logo shortName')
+        .populate('teamB', 'name logo shortName')
+        .populate('result.winner', 'name _id')
+        .populate('tournamentId', 'name type')
+        .sort({ startTime: -1 })
+        .limit(50)
+        .lean(),
+    ]);
+
+    const completed = matches.filter(m => m.status === 'completed');
+    const won = completed.filter(m => {
+      const w = m.result?.winner;
+      return w && (w._id?.toString() || w.toString()) === id.toString();
+    }).length;
+    const tied = completed.filter(m => !m.result?.winner).length;
+    const lost = completed.length - won - tied;
+
+    res.json(ApiResponse.ok({
+      team,
+      stats: { playerCount, played: completed.length, won, lost, tied },
+      players,
+      matches,
+    }));
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getClubs,
   getClubBySlug,
@@ -273,4 +311,5 @@ module.exports = {
   getPlayerById,
   getClubLeaderboard,
   getPointsTable,
+  getTeamPublic,
 };

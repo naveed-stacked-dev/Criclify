@@ -108,15 +108,15 @@ export default function MatchesPage() {
   };
 
   const handleAssignManager = async () => {
-    if (!assignForm.email.trim()) return toast.error("Manager email required");
+    if (!assignForm.name.trim()) return toast.error("Scorer name is required");
     setSubmitting(true);
     try {
       await authService.createMatchManager({
         matchId: selected._id || selected.id,
         clubId: selectedClub,
         name: assignForm.name,
-        email: assignForm.email,
-        password: assignForm.password,
+        ...(assignForm.email.trim() && { email: assignForm.email }),
+        ...(assignForm.password.trim() && { password: assignForm.password }),
       });
       toast.success("Match Manager assigned");
       setShowAssign(false);
@@ -141,7 +141,7 @@ export default function MatchesPage() {
       const res = await matchService.generateToken(match._id || match.id);
       const token = res.data?.data?.token || res.data?.token;
       if (token) {
-        const link = `${window.location.origin}/login?token=${token}`;
+        const link = `${window.location.origin}/scorer/login?token=${token}`;
         navigator.clipboard.writeText(link);
         toast.success("Scorer link copied to clipboard!");
       }
@@ -372,9 +372,9 @@ export default function MatchesPage() {
         <DialogContent>
           <DialogHeader><DialogTitle style={{ color: themeColor }}>Assign Match Manager</DialogTitle><DialogDescription>Create a dedicated scorer account for this match.</DialogDescription></DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="space-y-2"><Label>Name</Label><Input placeholder="Scorer Name" value={assignForm.name} onChange={(e) => setAssignForm({ ...assignForm, name: e.target.value })} /></div>
-            <div className="space-y-2"><Label>Email</Label><Input type="email" placeholder="scorer@example.com" value={assignForm.email} onChange={(e) => setAssignForm({ ...assignForm, email: e.target.value })} /></div>
-            <div className="space-y-2"><Label>Password</Label><PasswordInput value={assignForm.password} onChange={(e) => setAssignForm({ ...assignForm, password: e.target.value })} /></div>
+            <div className="space-y-2"><Label>Name <span className="text-destructive">*</span></Label><Input placeholder="Scorer Name" value={assignForm.name} onChange={(e) => setAssignForm({ ...assignForm, name: e.target.value })} /></div>
+            <div className="space-y-2"><Label>Email <span className="text-muted-foreground text-xs">(optional)</span></Label><Input type="email" placeholder="scorer@example.com" value={assignForm.email} onChange={(e) => setAssignForm({ ...assignForm, email: e.target.value })} /></div>
+            <div className="space-y-2"><Label>Password <span className="text-muted-foreground text-xs">(optional — token link will be generated)</span></Label><PasswordInput value={assignForm.password} onChange={(e) => setAssignForm({ ...assignForm, password: e.target.value })} /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAssign(false)}>Cancel</Button>

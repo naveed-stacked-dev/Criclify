@@ -100,6 +100,10 @@ const matchSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    matchGroup: {
+      type: String,
+      default: null,
+    },
     matchNumber: {
       type: Number,
       default: null,

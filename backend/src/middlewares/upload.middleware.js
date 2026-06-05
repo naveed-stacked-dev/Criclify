@@ -57,4 +57,45 @@ const handleUpload = (req, res, next) => {
   });
 };
 
-module.exports = { handleUpload };
+const DOCUMENT_MIME_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/plain',
+  'image/jpeg',
+  'image/png',
+];
+const DOCUMENT_MAX_SIZE = 10 * 1024 * 1024; // 10 MB
+
+const documentFileFilter = (req, file, cb) => {
+  if (DOCUMENT_MIME_TYPES.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error(`File type not allowed. Upload PDF, Word, Excel, image, or text files.`), false);
+  }
+};
+
+const uploadDocument = multer({
+  storage,
+  fileFilter: documentFileFilter,
+  limits: { fileSize: DOCUMENT_MAX_SIZE },
+}).single('file');
+
+const handleDocumentUpload = (req, res, next) => {
+  uploadDocument(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ success: false, message: 'File too large. Maximum size: 10MB', errorCode: 'FILE_TOO_LARGE' });
+      }
+      return res.status(400).json({ success: false, message: err.message, errorCode: 'UPLOAD_ERROR' });
+    }
+    if (err) {
+      return res.status(400).json({ success: false, message: err.message, errorCode: 'UPLOAD_ERROR' });
+    }
+    next();
+  });
+};
+
+module.exports = { handleUpload, handleDocumentUpload };

@@ -8,9 +8,10 @@ import teamService from "@/services/teamService";
 import tournamentService from "@/services/tournamentService";
 import matchService from "@/services/matchService";
 import playerService from "@/services/playerService";
+import analyticsService from "@/services/analyticsService";
 import {
   Trophy, Users, Calendar, Radio, TrendingUp, UserCircle, Swords, Activity,
-  LayoutDashboard
+  LayoutDashboard, Zap, Target, Circle
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -22,6 +23,7 @@ const item = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } };
 export default function ClubManagerDashboard() {
   const { user, clubId, clubName, clubLogo, themeColor } = useAppContext();
   const [stats, setStats] = useState(null);
+  const [aggregateStats, setAggregateStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [recentMatches, setRecentMatches] = useState([]);
 
@@ -33,17 +35,21 @@ export default function ClubManagerDashboard() {
 
     const fetchData = async () => {
       try {
-        const [teamRes, tournamentRes, matchRes, playerRes] = await Promise.allSettled([
+        const [teamRes, tournamentRes, matchRes, playerRes, analyticsRes] = await Promise.allSettled([
           teamService.getByClub(clubId),
           tournamentService.getByClub(clubId),
           matchService.getAll({ clubId, page: 1, limit: 10 }),
           playerService.getByClub(clubId),
+          analyticsService.getClubDashboardStats(clubId),
         ]);
 
         const teams = teamRes.status === "fulfilled" ? teamRes.value.data : null;
         const tournaments = tournamentRes.status === "fulfilled" ? tournamentRes.value.data : null;
         const matches = matchRes.status === "fulfilled" ? matchRes.value.data : null;
         const players = playerRes.status === "fulfilled" ? playerRes.value.data : null;
+
+        const analytics = analyticsRes.status === "fulfilled" ? analyticsRes.value.data : null;
+        setAggregateStats(analytics?.data || null);
 
         const allMatches = matches?.data || [];
         const completedOnly = allMatches.filter(m => m.status === 'completed');
@@ -152,6 +158,39 @@ export default function ClubManagerDashboard() {
                       <Icon className="w-5 h-5" />
                     </div>
                   </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          );
+        })}
+      </div>
+
+      {/* Aggregate Stats Row */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        {[
+          { label: "Total Runs", value: aggregateStats?.totalRuns ?? "—", icon: TrendingUp, color: "#3b82f6" },
+          { label: "Total Wickets", value: aggregateStats?.totalWickets ?? "—", icon: Target, color: "#ef4444" },
+          { label: "Balls Bowled", value: aggregateStats?.totalBallsBowled ?? "—", icon: Circle, color: "#8b5cf6" },
+          { label: "Total Fours", value: aggregateStats?.totalFours ?? "—", icon: Zap, color: "#10b981" },
+          { label: "Total Sixes", value: aggregateStats?.totalSixes ?? "—", icon: Zap, color: "#f59e0b" },
+          { label: "Total Catches", value: aggregateStats?.totalCatches ?? "—", icon: Activity, color: "#06b6d4" },
+        ].map((s) => {
+          const Icon = s.icon;
+          return (
+            <motion.div key={s.label} variants={item}>
+              <Card className="border-border/50 shadow-sm">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-xs text-muted-foreground font-medium leading-tight">{s.label}</p>
+                    <Icon className="w-3.5 h-3.5 shrink-0" style={{ color: s.color }} />
+                  </div>
+                  {loading ? (
+                    <Skeleton className="h-7 w-12 mt-1" />
+                  ) : (
+                    <p className="text-2xl font-bold" style={{ color: s.color }}>
+                      {typeof s.value === "number" ? s.value.toLocaleString() : s.value}
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             </motion.div>

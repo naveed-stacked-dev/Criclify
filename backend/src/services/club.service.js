@@ -124,6 +124,7 @@ const updateTheme = async (id, themeData, user, role) => {
   if (themeData.primaryColor) club.theme.primaryColor = themeData.primaryColor;
   if (themeData.secondaryColor) club.theme.secondaryColor = themeData.secondaryColor;
   if (themeData.bannerUrl !== undefined) club.theme.bannerUrl = themeData.bannerUrl;
+  if (themeData.template) club.theme.template = themeData.template;
 
   await club.save();
   return club;
