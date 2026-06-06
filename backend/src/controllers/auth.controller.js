@@ -71,8 +71,8 @@ const createMatchManager = async (req, res, next) => {
  */
 const loginMatchManager = async (req, res, next) => {
   try {
-    const { email, password, token } = req.body;
-    const result = await authService.loginMatchManager(email, password, token);
+    const { name, password, token } = req.body;
+    const result = await authService.loginMatchManager(name, password, token);
     res.json(ApiResponse.ok(result, 'Login successful'));
   } catch (error) {
     next(error);

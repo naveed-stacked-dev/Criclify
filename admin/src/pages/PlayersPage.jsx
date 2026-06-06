@@ -18,7 +18,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { UserCircle, Plus, MoreHorizontal, Pencil, Trash2, Loader2, Search, BarChart3, Shield } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { UserCircle, Plus, MoreHorizontal, Pencil, Trash2, Loader2, Search, BarChart3, Shield, CheckCircle, Clock } from "lucide-react";
 
 const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.05 } } };
 const item = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } };
@@ -42,6 +43,7 @@ export default function PlayersPage() {
   const [clubLoading, setClubLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterTeam, setFilterTeam] = useState("all");
+  const [activeTab, setActiveTab] = useState("approved");
 
   const [showCreate, setShowCreate] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
@@ -83,7 +85,7 @@ export default function PlayersPage() {
     try {
       const [pRes, tRes] = await Promise.allSettled([
         playerService.getByClub(selectedClub, { limit: 1000 }),
-        teamService.getByClub(selectedClub),
+        teamService.getByClub(selectedClub, { approved: "true" }),
       ]);
       const pData = pRes.status === "fulfilled" ? (pRes.value.data?.data || pRes.value.data?.players || pRes.value.data || []) : [];
       const tData = tRes.status === "fulfilled" ? (tRes.value.data?.data || tRes.value.data?.teams || tRes.value.data || []) : [];
@@ -180,21 +182,21 @@ export default function PlayersPage() {
     setShowEdit(true);
   };
 
-  const filtered = players.filter((p) => {
+  const applyFilters = (list) => list.filter((p) => {
     const matchesSearch = (p.name || "").toLowerCase().includes(search.toLowerCase()) ||
                           (p.role || "").toLowerCase().includes(search.toLowerCase());
-
     let matchesTeam = true;
     if (filterTeam !== "all") {
-      if (filterTeam === "unassigned") {
-        matchesTeam = !p.teamId;
-      } else {
-        matchesTeam = (p.teamId?._id || p.teamId) === filterTeam;
-      }
+      if (filterTeam === "unassigned") matchesTeam = !p.teamId;
+      else matchesTeam = (p.teamId?._id || p.teamId) === filterTeam;
     }
-
     return matchesSearch && matchesTeam;
   });
+
+  const approvedPlayers = players.filter((p) => p.approved !== false);
+  const pendingPlayers  = players.filter((p) => p.approved === false);
+  const filteredApproved = applyFilters(approvedPlayers);
+  const filteredPending  = applyFilters(pendingPlayers);
 
   const rosterCountByTeam = players.reduce((acc, p) => {
     const tid = p.teamId?._id || p.teamId;
@@ -246,71 +248,94 @@ export default function PlayersPage() {
       </motion.div>
 
       <motion.div variants={item}>
-        <Card>
-          <CardContent className="p-0">
-            {clubLoading || loading ? (
-              <div className="p-6 space-y-3">{[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-12 w-full rounded-lg" />)}</div>
-            ) : !selectedClub ? (
-              <div className="text-center py-16 text-muted-foreground"><Shield className="w-12 h-12 mx-auto mb-3 opacity-20" /><p className="font-medium">Select a club</p></div>
-            ) : filtered.length === 0 ? (
-              <div className="text-center py-16 text-muted-foreground"><UserCircle className="w-12 h-12 mx-auto mb-3 opacity-20" /><p className="font-medium">No players found</p></div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Player</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>
-                      Team
-                      <span className="ml-2 text-xs font-normal text-muted-foreground">(assigned/capacity)</span>
-                    </TableHead>
-                    <TableHead>Jersey</TableHead>
-                    <TableHead className="w-12"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map((p) => (
-                    <TableRow key={p._id || p.id}>
-                      <TableCell>
-                        <Link to={`/players/${p._id || p.id}`} className="flex items-center gap-3 hover:underline">
-                          <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold" style={{ backgroundColor: `${themeColor}20`, color: themeColor }}>
-                            {p.avatar ? <img src={p.avatar} alt="" className="w-9 h-9 rounded-full object-cover" /> : (p.name || "?")[0]}
-                          </div>
-                          <div>
-                            <p className="font-medium text-sm" style={{ color: themeColor }}>{p.name}</p>
-                            {p.phone && <p className="text-xs text-muted-foreground no-underline">{p.phone}</p>}
-                          </div>
-                        </Link>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={`capitalize text-xs ${getRoleBadge(p.role)}`}>{p.role || "—"}</Badge>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {p.teamId?.name || "Unassigned"}
-                        {p.teamId && (
-                          <span className={`ml-1.5 text-xs font-medium ${rosterCountByTeam[p.teamId?._id || p.teamId] >= ROSTER_LIMIT ? "text-destructive" : "text-muted-foreground"}`}>
-                            ({rosterCountByTeam[p.teamId?._id || p.teamId] || 0}/{ROSTER_LIMIT})
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell><Badge variant="outline" className="font-mono text-xs">#{p.jerseyNumber || "—"}</Badge></TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => openStats(p)}><BarChart3 className="w-4 h-4 mr-2" /> Stats</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => openEdit(p)}><Pencil className="w-4 h-4 mr-2" /> Edit</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => { setSelected(p); setShowDelete(true); }} className="text-destructive focus:text-destructive"><Trash2 className="w-4 h-4 mr-2" /> Delete</DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="mb-4">
+            <TabsTrigger value="approved" className="flex items-center gap-2">
+              <CheckCircle className="w-4 h-4" />
+              Approved Players
+              {approvedPlayers.length > 0 && <Badge variant="secondary" className="ml-1 text-xs">{approvedPlayers.length}</Badge>}
+            </TabsTrigger>
+            <TabsTrigger value="pending" className="flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              Pending Approval
+              {pendingPlayers.length > 0 && <Badge className="ml-1 text-xs bg-amber-500 text-white">{pendingPlayers.length}</Badge>}
+            </TabsTrigger>
+          </TabsList>
+
+          {["approved", "pending"].map((tab) => {
+            const list = tab === "approved" ? filteredApproved : filteredPending;
+            const emptyMsg = tab === "approved" ? "No approved players found" : "No pending players";
+            return (
+              <TabsContent key={tab} value={tab}>
+                <Card>
+                  <CardContent className="p-0">
+                    {clubLoading || loading ? (
+                      <div className="p-6 space-y-3">{[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-12 w-full rounded-lg" />)}</div>
+                    ) : !selectedClub ? (
+                      <div className="text-center py-16 text-muted-foreground"><Shield className="w-12 h-12 mx-auto mb-3 opacity-20" /><p className="font-medium">Select a club</p></div>
+                    ) : list.length === 0 ? (
+                      <div className="text-center py-16 text-muted-foreground"><UserCircle className="w-12 h-12 mx-auto mb-3 opacity-20" /><p className="font-medium">{emptyMsg}</p></div>
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Player</TableHead>
+                            <TableHead>Role</TableHead>
+                            <TableHead>
+                              Team
+                              <span className="ml-2 text-xs font-normal text-muted-foreground">(assigned/capacity)</span>
+                            </TableHead>
+                            <TableHead>Jersey</TableHead>
+                            <TableHead className="w-12"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {list.map((p) => (
+                            <TableRow key={p._id || p.id}>
+                              <TableCell>
+                                <Link to={`/players/${p._id || p.id}`} className="flex items-center gap-3 hover:underline">
+                                  <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{ backgroundColor: `${themeColor}20`, color: themeColor }}>
+                                    {p.avatar ? <img src={p.avatar} alt="" className="w-9 h-9 rounded-full object-cover" /> : (p.name || "?")[0]}
+                                  </div>
+                                  <div>
+                                    <p className="font-medium text-sm" style={{ color: themeColor }}>{p.name}</p>
+                                    {p.phone && <p className="text-xs text-muted-foreground">{p.phone}</p>}
+                                  </div>
+                                </Link>
+                              </TableCell>
+                              <TableCell>
+                                <Badge className={`capitalize text-xs ${getRoleBadge(p.role)}`}>{p.role || "—"}</Badge>
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground">
+                                {p.teamId?.name || "Unassigned"}
+                                {p.teamId && (
+                                  <span className={`ml-1.5 text-xs font-medium ${rosterCountByTeam[p.teamId?._id || p.teamId] >= ROSTER_LIMIT ? "text-destructive" : "text-muted-foreground"}`}>
+                                    ({rosterCountByTeam[p.teamId?._id || p.teamId] || 0}/{ROSTER_LIMIT})
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell><Badge variant="outline" className="font-mono text-xs">#{p.jerseyNumber || "—"}</Badge></TableCell>
+                              <TableCell>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => openStats(p)}><BarChart3 className="w-4 h-4 mr-2" /> Stats</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => openEdit(p)}><Pencil className="w-4 h-4 mr-2" /> Edit</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => { setSelected(p); setShowDelete(true); }} className="text-destructive focus:text-destructive"><Trash2 className="w-4 h-4 mr-2" /> Delete</DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            );
+          })}
+        </Tabs>
       </motion.div>
 
       {/* Create */}

@@ -334,8 +334,8 @@ export default function TeamDetailPage() {
                       </TableCell>
                       <TableCell>
                         <Link to={`/players/${player._id}`} className="flex items-center gap-2.5 group">
-                          {player.photo ? (
-                            <img src={player.photo} alt="" className="w-7 h-7 rounded-lg object-cover shrink-0" />
+                          {player.avatar ? (
+                            <img src={player.avatar} alt="" className="w-7 h-7 rounded-lg object-cover shrink-0" />
                           ) : (
                             <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold text-white shrink-0 bg-primary">
                               {(player.name || "P")[0]}

@@ -345,9 +345,16 @@ const addWicket = async (matchId, eventData, performedBy) => {
   const batsmanEntry = inning.battingOrder.find(
     (b) => b.playerId?.toString() === outPlayerId
   );
+  let isDuckOut = false;
   if (batsmanEntry) {
     batsmanEntry.isOut = true;
     batsmanEntry.dismissalType = eventData.wicketType;
+
+    // Duck-out: player dismissed with 0 runs
+    if (batsmanEntry.runs === 0) {
+      batsmanEntry.isDuckOut = true;
+      isDuckOut = true;
+    }
   }
 
   // Update bowler figures (wicket credited unless runout)
@@ -355,6 +362,19 @@ const addWicket = async (matchId, eventData, performedBy) => {
     updateBowlingFigures(inning, eventData.bowlerId, eventData.runs || 0, true, isLegal ? 1 : 0);
   } else {
     updateBowlingFigures(inning, eventData.bowlerId, eventData.runs || 0, false, isLegal ? 1 : 0);
+  }
+
+  // Set lastDuckOut on summary for real-time broadcast
+  if (isDuckOut) {
+    summary.lastDuckOut = {
+      playerId: outPlayerId,
+      playerName: eventData.outPlayerName || null,
+      dismissalType: eventData.wicketType,
+      timestamp: new Date(),
+    };
+  } else {
+    // Clear any previous duck-out
+    summary.lastDuckOut = { playerId: null, playerName: null, dismissalType: null, timestamp: null };
   }
 
   summary.lastEvent = event._id;
@@ -365,11 +385,11 @@ const addWicket = async (matchId, eventData, performedBy) => {
     matchId,
     action: 'wicket_added',
     performedBy,
-    eventData: { wicketType: eventData.wicketType, outPlayerId },
-    description: `Wicket! ${eventData.wicketType}. Player ${outPlayerId} out.`,
+    eventData: { wicketType: eventData.wicketType, outPlayerId, isDuckOut },
+    description: `Wicket! ${eventData.wicketType}. Player ${outPlayerId} out.${isDuckOut ? ' DUCK OUT!' : ''}`,
   });
 
-  return { event, summary };
+  return { event, summary, isDuckOut };
 };
 
 /**
@@ -738,9 +758,9 @@ const setActivePlayers = async (matchId, { striker, nonStriker, bowler }) => {
  */
 const getMatchSummary = async (matchId) => {
   const summary = await MatchSummary.findOne({ matchId })
-    .populate('currentBatsmen.striker.playerId', 'name')
-    .populate('currentBatsmen.nonStriker.playerId', 'name')
-    .populate('currentBowler.playerId', 'name');
+    .populate('currentBatsmen.striker.playerId', 'name avatar')
+    .populate('currentBatsmen.nonStriker.playerId', 'name avatar')
+    .populate('currentBowler.playerId', 'name avatar');
   if (!summary) throw ApiError.notFound('Match summary not found');
   return summary;
 };
@@ -1219,13 +1239,13 @@ const getScorecard = async (matchId) => {
     .populate('innings.first.bowlingTeamId', 'name logo')
     .populate('innings.second.battingTeamId', 'name logo')
     .populate('innings.second.bowlingTeamId', 'name logo')
-    .populate('innings.first.battingOrder.playerId', 'name jerseyNumber')
-    .populate('innings.first.bowlingFigures.playerId', 'name jerseyNumber')
-    .populate('innings.second.battingOrder.playerId', 'name jerseyNumber')
-    .populate('innings.second.bowlingFigures.playerId', 'name jerseyNumber')
-    .populate('currentBatsmen.striker.playerId', 'name')
-    .populate('currentBatsmen.nonStriker.playerId', 'name')
-    .populate('currentBowler.playerId', 'name');
+    .populate('innings.first.battingOrder.playerId', 'name jerseyNumber avatar role')
+    .populate('innings.first.bowlingFigures.playerId', 'name jerseyNumber avatar role')
+    .populate('innings.second.battingOrder.playerId', 'name jerseyNumber avatar role')
+    .populate('innings.second.bowlingFigures.playerId', 'name jerseyNumber avatar role')
+    .populate('currentBatsmen.striker.playerId', 'name avatar')
+    .populate('currentBatsmen.nonStriker.playerId', 'name avatar')
+    .populate('currentBowler.playerId', 'name avatar');
   if (!summary) throw ApiError.notFound('Match summary not found');
   return summary;
 };

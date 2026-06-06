@@ -3,6 +3,7 @@ import { useOutletContext, useSearchParams, useNavigate, useParams } from "react
 import { motion } from "framer-motion";
 import { CalendarDays, Trophy, Filter, ChevronDown } from "lucide-react";
 import clubService from "../services/clubService";
+import { encodeId } from "../../utils/crypto";
 
 /**
  * ClubMatchesPage — Comprehensive match list with filters.
@@ -153,7 +154,7 @@ export default function ClubMatchesPage() {
                 transition={{ delay: i * 0.03 }}
                 whileHover={{ scale: 1.01 }}
                 className="glass-card p-4 cursor-pointer hover:shadow-md transition-all"
-                onClick={() => navigate(`/clubs/${slug}/matches/${match._id || match.id}`)}
+                onClick={() => navigate(`/clubs/${slug}/matches/${match.slug || encodeId(match._id || match.id)}`)}
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[10px] truncate max-w-[200px]" style={{ color: "var(--club-text-muted)" }}>

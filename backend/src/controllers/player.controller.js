@@ -21,10 +21,15 @@ const create = async (req, res, next) => {
 
 const getByClub = async (req, res, next) => {
   try {
+    let approvedFilter = null;
+    if (req.query.approved === 'true') approvedFilter = true;
+    if (req.query.approved === 'false') approvedFilter = false;
+
     const { players, total } = await playerService.getPlayersByClub(
       req.params.clubId,
       req.pagination,
-      req.query.teamId || null
+      req.query.teamId || null,
+      approvedFilter
     );
     const pagination = buildPaginationResponse(total, req.pagination);
     res.json(ApiResponse.paginated(players, pagination));

@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import { useAppContext } from "@/hooks/useAppContext";
 import matchService from "@/services/matchService";
 import tournamentService from "@/services/tournamentService";
 import teamService from "@/services/teamService";
 import clubService from "@/services/clubService";
+import { encodeId } from "@/utils/crypto";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,13 +16,13 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Calendar, Plus, MoreHorizontal, Pencil, Trash2, Loader2, Search, Shield,
   GitBranch, Activity, Trophy, Swords, Eye, Link2,
-  TableProperties, Network, KanbanSquare, Clock, Users
+  TableProperties, Network, KanbanSquare, Clock, Users, Monitor
 } from "lucide-react";
 import { cn, toLocalISOString } from "@/lib/utils";
 import BracketTree from "@/components/bracket/BracketTree";
@@ -36,6 +38,7 @@ const item = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } };
 
 export default function MatchSchedulingPage() {
   const { user, clubId: contextClubId, themeColor } = useAppContext();
+  const navigate = useNavigate();
   const isSuperAdmin = user?.role === "superAdmin" || user?.role === "superadmin";
 
   // ─── State ───
@@ -95,7 +98,7 @@ export default function MatchSchedulingPage() {
       try {
         const [tRes, tmRes] = await Promise.allSettled([
           tournamentService.getByClub(selectedClub),
-          teamService.getByClub(selectedClub),
+          teamService.getByClub(selectedClub, { approved: "true" }),
         ]);
         const tData = tRes.status === "fulfilled" ? (tRes.value.data?.data || tRes.value.data || []) : [];
         setTournaments(Array.isArray(tData) ? tData : []);
@@ -209,6 +212,12 @@ export default function MatchSchedulingPage() {
       setShowMatchDetail(false);
       fetchMatchData();
     } catch { /* interceptor */ } finally { setSubmitting(false); }
+  };
+
+  const copyTvLink = (m) => {
+    const base = import.meta.env.VITE_FRONTEND_URL || "http://localhost:5173";
+    const url = `${base}/tv/${encodeId(m._id || m.id)}`;
+    navigator.clipboard.writeText(url).then(() => toast.success("TV display link copied!"));
   };
 
   const openEdit = (m) => {
@@ -410,7 +419,11 @@ export default function MatchSchedulingPage() {
                           const winnerId = m.result?.winner?._id || m.result?.winner;
                           const winnerName = (m.result?.winner && typeof m.result.winner === "object") ? m.result.winner.name : (winnerId ? (String(winnerId) === String(m.teamA?._id) ? m.teamA?.name : m.teamB?.name) : "—");
                           return (
-                            <TableRow key={m._id || m.id} className="group hover:bg-card/80 transition-colors">
+                            <TableRow
+                              key={m._id || m.id}
+                              className="group hover:bg-card/80 transition-colors cursor-pointer"
+                              onClick={() => navigate(`/match/${encodeId(m._id || m.id)}/match-summary`)}
+                            >
                               <TableCell className="font-mono text-xs text-muted-foreground">{m.matchNumber || idx + 1}</TableCell>
                               <TableCell>
                                 <Badge 
@@ -429,7 +442,7 @@ export default function MatchSchedulingPage() {
                               <TableCell className="text-sm">{m.venue || "TBD"}</TableCell>
                               <TableCell className="text-sm font-medium text-emerald-400">{winnerName}</TableCell>
                               <TableCell>{getStatusBadge(m)}</TableCell>
-                              <TableCell>
+                              <TableCell onClick={(e) => e.stopPropagation()}>
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
@@ -437,6 +450,8 @@ export default function MatchSchedulingPage() {
                                     <DropdownMenuItem onClick={() => { setMatchForSquad(m); setShowSquadSelection(true); }}><Users className="w-4 h-4 mr-2" /> Manage Squad</DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => openEdit(m)}><Pencil className="w-4 h-4 mr-2" /> Edit</DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => openDelete(m)} className="text-red-400"><Trash2 className="w-4 h-4 mr-2" /> Delete</DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => copyTvLink(m)}><Monitor className="w-4 h-4 mr-2" /> Copy TV Display Link</DropdownMenuItem>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
                               </TableCell>

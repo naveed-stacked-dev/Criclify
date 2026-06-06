@@ -34,6 +34,7 @@ const clubService = {
   getTeamsByClub: (clubId, params) =>
     apiClient.get(`/public/teams/club/${clubId}`, { params }),
   getTeam: (id) => apiClient.get(`/public/teams/${id}`),
+  submitTeam: (data) => apiClient.post('/teams/submit-public', data),
   getPlayersByClub: (clubId, params) =>
     apiClient.get(`/public/players/club/${clubId}`, { params }),
   getPlayer: (id) => apiClient.get(`/public/players/${id}`),

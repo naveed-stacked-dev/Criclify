@@ -23,13 +23,21 @@ const getMatches = async (filter, { skip, limit }) => {
 };
 
 /**
- * Get a single match by ID.
+ * Get a single match by ID or slug.
  */
-const getMatchById = async (id) => {
-  const match = await Match.findById(id)
+const getMatchById = async (idOrSlug) => {
+  const mongoose = require('mongoose');
+  const isObjectId = mongoose.Types.ObjectId.isValid(idOrSlug) && idOrSlug.length === 24;
+
+  const query = isObjectId
+    ? { _id: idOrSlug }
+    : { slug: idOrSlug };
+
+  const match = await Match.findOne(query)
     .populate('teamA', 'name logo')
     .populate('teamB', 'name logo')
     .populate('tournamentId', 'name type')
+    .populate('clubId', 'theme')
     .populate('toss.wonBy', 'name')
     .populate('battingTeam', 'name')
     .populate('bowlingTeam', 'name')

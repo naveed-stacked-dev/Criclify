@@ -143,7 +143,7 @@ const createMatchManager = async (data) => {
 /**
  * Login a match manager via email/password.
  */
-const loginMatchManager = async (email, password, token) => {
+const loginMatchManager = async (name, password, token) => {
   if (!token) {
     throw ApiError.unauthorized('Access denied. Please use the Scorer Link provided by the administrator to log in.');
   }
@@ -158,10 +158,10 @@ const loginMatchManager = async (email, password, token) => {
     throw ApiError.unauthorized('No manager is assigned to this match.');
   }
 
-  // 2. Find the MatchManager linked to this match, ensuring the email matches
+  // 2. Find the MatchManager linked to this match, ensuring the name matches
   const manager = await MatchManager.findOne({ 
     _id: match.assignedManager,
-    email: email.toLowerCase().trim() 
+    name: name.trim() 
   }).select('+password');
 
   if (!manager || !manager.password) {
@@ -171,7 +171,7 @@ const loginMatchManager = async (email, password, token) => {
   // 3. Verify the password
   const isMatch = await manager.comparePassword(password);
   if (!isMatch) {
-    throw ApiError.unauthorized('Invalid email or password.');
+    throw ApiError.unauthorized('Invalid name or password.');
   }
 
   const tokens = generateTokens(manager._id, ROLES.MATCH_MANAGER);

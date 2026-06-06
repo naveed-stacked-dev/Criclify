@@ -47,6 +47,11 @@ const playerSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    approved: {
+      type: Boolean,
+      default: true,
+      index: true,
+    },
     stats: {
       matches: { type: Number, default: 0 },
       totalRuns: { type: Number, default: 0 },

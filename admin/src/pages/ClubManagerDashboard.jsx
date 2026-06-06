@@ -36,7 +36,7 @@ export default function ClubManagerDashboard() {
     const fetchData = async () => {
       try {
         const [teamRes, tournamentRes, matchRes, playerRes, analyticsRes] = await Promise.allSettled([
-          teamService.getByClub(clubId),
+          teamService.getByClub(clubId, { approved: "true" }),
           tournamentService.getByClub(clubId),
           matchService.getAll({ clubId, page: 1, limit: 10 }),
           playerService.getByClub(clubId),

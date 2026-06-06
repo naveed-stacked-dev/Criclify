@@ -83,6 +83,40 @@ const addScore = async (req, res, next) => {
     const performedBy = { id: req.user._id, role: req.userRole };
     const result = await scoringService.addScore(req.params.id, req.body, performedBy);
     await broadcastUpdate(req, req.params.id, 'score_update', { event: result.event, summary: result.summary });
+
+    // Emit animation events for fours and sixes
+    const runs = req.body.runs;
+    if (runs === 4 || runs === 6) {
+      const io = req.app.get('io');
+      const clubId = await getClubId(req.params.id);
+
+      let playerName = req.body.batsmanName;
+      if (!playerName) {
+        const playerId = req.body.batsmanId;
+        if (playerId) {
+          const Player = require('../models/Player');
+          const player = await Player.findById(playerId);
+          if (player) playerName = player.name;
+        }
+      }
+      playerName = playerName || 'Unknown';
+
+      const payload = {
+        matchId: req.params.id,
+        clubId,
+        playerName,
+        timestamp: new Date(),
+      };
+
+      if (io) {
+        const eventName = runs === 4 ? 'four' : 'six';
+        io.to(`match_${req.params.id}`).emit(eventName, payload);
+        if (clubId) {
+          io.to(`club_${clubId}`).emit(eventName, payload);
+        }
+      }
+    }
+
     res.status(201).json(ApiResponse.created(result, 'Score recorded'));
   } catch (error) {
     next(error);
@@ -94,6 +128,41 @@ const addWicket = async (req, res, next) => {
     const performedBy = { id: req.user._id, role: req.userRole };
     const result = await scoringService.addWicket(req.params.id, req.body, performedBy);
     await broadcastUpdate(req, req.params.id, 'wicket', { event: result.event, summary: result.summary });
+
+    // Emit dedicated out or duck_out event
+    const io = req.app.get('io');
+    const clubId = await getClubId(req.params.id);
+
+    // Resolve player name from the summary's lastDuckOut (if duck) or request body
+    let playerName = result.summary?.lastDuckOut?.playerName
+      || req.body.outPlayerName;
+
+    if (!playerName) {
+      const playerId = result.summary?.lastDuckOut?.playerId || req.body.outPlayerId || req.body.batsmanId;
+      if (playerId) {
+        const Player = require('../models/Player');
+        const player = await Player.findById(playerId);
+        if (player) playerName = player.name;
+      }
+    }
+    playerName = playerName || 'Unknown';
+
+    const payload = {
+      matchId: req.params.id,
+      clubId,
+      playerName,
+      dismissalType: req.body.wicketType,
+      timestamp: new Date(),
+    };
+
+    if (io) {
+      const eventName = result.isDuckOut ? 'duck_out' : 'out';
+      io.to(`match_${req.params.id}`).emit(eventName, payload);
+      if (clubId) {
+        io.to(`club_${clubId}`).emit(eventName, payload);
+      }
+    }
+
     res.status(201).json(ApiResponse.created(result, 'Wicket recorded'));
   } catch (error) {
     next(error);

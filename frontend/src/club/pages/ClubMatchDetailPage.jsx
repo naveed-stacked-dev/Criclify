@@ -8,9 +8,11 @@ import {
   Trophy, Activity, Clock, MapPin, Zap, ChevronRight,
   ShieldAlert, Target, TrendingUp,
 } from "lucide-react";
+import { decodeId } from "../../utils/crypto";
 
 export default function ClubMatchDetailPage() {
-  const { matchId, slug } = useParams();
+  const { matchId: rawMatchId, slug } = useParams();
+  const matchId = decodeId(rawMatchId);
   const navigate = useNavigate();
   const { club } = useOutletContext();
 
@@ -22,13 +24,23 @@ export default function ClubMatchDetailPage() {
   const [tab, setTab] = useState("scorecard");
   const socketRef = useRef(null);
 
-  const fetchAll = async () => {
+  // The real MongoDB _id — resolved once the match is fetched
+  // (matchId param may be a slug)
+  const realMatchIdRef = useRef(null);
+
+  const fetchAll = async (resolvedId) => {
+    const id = resolvedId || realMatchIdRef.current || matchId;
     const [mRes, scRes, evRes] = await Promise.allSettled([
-      clubService.getMatchById(matchId),
-      clubService.getMatchScorecard(matchId),
-      clubService.getMatchEvents(matchId),
+      clubService.getMatchById(matchId),      // can be slug — backend resolves it
+      clubService.getMatchScorecard(matchId),  // same
+      clubService.getMatchEvents(matchId),     // same
     ]);
-    if (mRes.status === "fulfilled") setMatch(mRes.value.data?.data || mRes.value.data);
+    if (mRes.status === "fulfilled") {
+      const m = mRes.value.data?.data || mRes.value.data;
+      setMatch(m);
+      // Store the real _id so socket can use it
+      if (m?._id) realMatchIdRef.current = m._id;
+    }
     if (scRes.status === "fulfilled") setScorecard(scRes.value.data?.data || scRes.value.data);
     if (evRes.status === "fulfilled") {
       const ed = evRes.value.data?.data || evRes.value.data?.events || evRes.value.data || [];
@@ -42,13 +54,27 @@ export default function ClubMatchDetailPage() {
   }, [matchId]);
 
   useEffect(() => {
-    const s = io(import.meta.env.VITE_API_URL?.replace("/api", "") || "http://localhost:5000", { withCredentials: true });
-    socketRef.current = s;
-    s.emit("join_match", { matchId });
-    s.emit("get_viewers", { matchId });
-    s.on("score_update", async () => { try { await fetchAll(); } catch {} });
-    s.on("viewers_count", ({ count }) => setViewers(count));
-    return () => { s.emit("leave_match", { matchId }); s.disconnect(); };
+    // Wait until we have the real _id before joining socket room
+    const getIdAndConnect = async () => {
+      let id = realMatchIdRef.current;
+      if (!id) {
+        // If match not loaded yet, fetch the id first
+        try {
+          const res = await clubService.getMatchById(matchId);
+          id = res.data?.data?._id || res.data?._id;
+          realMatchIdRef.current = id;
+        } catch { return; }
+      }
+      const s = io(import.meta.env.VITE_API_URL?.replace("/api", "") || "http://localhost:5000", { withCredentials: true });
+      socketRef.current = s;
+      s.emit("join_match", { matchId: id });
+      s.emit("get_viewers", { matchId: id });
+      s.on("score_update", async () => { try { await fetchAll(); } catch {} });
+      s.on("viewers_count", ({ count }) => setViewers(count));
+      return () => { s.emit("leave_match", { matchId: id }); s.disconnect(); };
+    };
+    getIdAndConnect();
+    return () => { socketRef.current?.disconnect(); };
   }, [matchId]);
 
   if (loading) return (
@@ -211,8 +237,37 @@ export default function ClubMatchDetailPage() {
                   <h3 className="text-sm font-bold" style={{ color: "var(--club-text-main)" }}>Ball by Ball Commentary</h3>
                   <span className="text-xs" style={{ color: "var(--club-text-muted)" }}>{events.length} deliveries</span>
                 </div>
-                <div className="max-h-[520px] overflow-y-auto club-scroll divide-y" style={{ borderColor: "var(--club-border)" }}>
-                  {[...events].map((ev, idx) => <EventRow key={ev._id || idx} ev={ev} />)}
+                <div data-lenis-prevent className="max-h-[520px] overflow-y-auto overscroll-contain pr-2 club-scroll space-y-4 pt-1" style={{ borderColor: "var(--club-border)" }}>
+                  {(() => {
+                    const groupedEvents = [];
+                    let currentGroup = null;
+                    [...events].forEach((ev) => {
+                      if (!currentGroup || currentGroup.over !== ev.over) {
+                        currentGroup = { over: ev.over, events: [], totalRuns: 0, hasWicket: false };
+                        groupedEvents.push(currentGroup);
+                      }
+                      currentGroup.events.push(ev);
+                      currentGroup.totalRuns += (ev.runs || 0) + (ev.extras?.runs || 0);
+                      if (ev.isWicket || ev.eventType === "wicket") currentGroup.hasWicket = true;
+                    });
+
+                    return groupedEvents.map((group, idx) => (
+                      <div key={idx} className="glass-surface overflow-hidden border rounded-xl" style={{ borderColor: "var(--club-border)" }}>
+                        <div className="px-4 py-2.5 border-b flex justify-between items-center" style={{ borderColor: "var(--club-border)", background: "color-mix(in srgb, var(--club-primary) 8%, transparent)" }}>
+                          <span className="font-bold text-sm" style={{ color: "var(--club-text-main)" }}>Over {group.over}</span>
+                          <div className="flex gap-2 items-center">
+                            {group.hasWicket && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 uppercase">Wicket</span>}
+                            <span className="text-xs font-semibold px-2.5 py-1 rounded-lg" style={{ backgroundColor: "var(--club-surface)", color: "var(--club-text-main)" }}>
+                              {group.totalRuns} Run{group.totalRuns !== 1 ? 's' : ''}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="divide-y" style={{ borderColor: "var(--club-border)" }}>
+                          {group.events.map((ev, i) => <EventRow key={ev._id || i} ev={ev} />)}
+                        </div>
+                      </div>
+                    ));
+                  })()}
                 </div>
               </div>
             )}
@@ -396,27 +451,45 @@ function EventRow({ ev }) {
   const isFour = ev.isBoundary || ev.runs === 4;
   const isExtra = ["wide", "noball", "bye", "legbye"].includes(ev.eventType);
 
-  const badge = isWicket ? { bg: "rgba(239,68,68,0.1)", color: "#ef4444", label: "W" }
-    : isSix ? { bg: "rgba(139,92,246,0.1)", color: "#8b5cf6", label: "6" }
-    : isFour ? { bg: "rgba(59,130,246,0.1)", color: "#3b82f6", label: "4" }
-    : isExtra ? { bg: "rgba(245,158,11,0.1)", color: "#f59e0b", label: ev.extraType?.[0]?.toUpperCase() || ev.eventType?.[0]?.toUpperCase() || "E" }
-    : { bg: "rgba(100,116,139,0.1)", color: "#64748b", label: ev.runs ?? "·" };
+  const badge = isWicket ? { bg: "rgba(239,68,68,0.15)", color: "#ef4444", label: "W", border: "rgba(239,68,68,0.3)" }
+    : isSix ? { bg: "rgba(139,92,246,0.15)", color: "#8b5cf6", label: "6", border: "rgba(139,92,246,0.3)" }
+    : isFour ? { bg: "rgba(59,130,246,0.15)", color: "#3b82f6", label: "4", border: "rgba(59,130,246,0.3)" }
+    : isExtra ? { bg: "rgba(245,158,11,0.15)", color: "#f59e0b", label: ev.extraType?.[0]?.toUpperCase() || ev.eventType?.[0]?.toUpperCase() || "E", border: "rgba(245,158,11,0.3)" }
+    : { bg: "var(--club-surface)", color: "var(--club-text-main)", label: ev.runs ?? "·", border: "var(--club-border)" };
 
   const batsman = ev.batsmanId?.name || ev.batsmanId;
   const bowler = ev.bowlerId?.name || ev.bowlerId;
-  const overLabel = `Over ${ev.over ?? "?"}.${ev.ball ?? "?"}`;
+  const ballNumber = `${ev.over ?? "?"}.${ev.ball ?? "?"}`;
 
   return (
-    <div className="flex items-start gap-3 px-5 py-3 hover:bg-slate-50 transition-colors">
-      <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5" style={{ background: badge.bg, color: badge.color }}>
-        {badge.label}
-      </span>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm" style={{ color: "var(--club-text-main)" }}>
-          {ev.description || (isWicket ? `WICKET! ${ev.wicket?.type || ""}` : `${ev.runs ?? 0} run${ev.runs !== 1 ? "s" : ""}`)}
+    <div className="flex items-start gap-4 px-5 py-4 transition-colors hover:bg-black/5 dark:hover:bg-white/5 group">
+      <div className="flex flex-col items-center shrink-0 w-12 pt-1">
+        <span className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-black transition-transform group-hover:scale-110 shadow-sm border" 
+          style={{ background: badge.bg, color: badge.color, borderColor: badge.border }}>
+          {badge.label}
+        </span>
+        <span className="text-[10px] font-bold mt-2 tracking-wide" style={{ color: "var(--club-text-muted)" }}>{ballNumber}</span>
+      </div>
+      <div className="flex-1 min-w-0 pt-0.5">
+        <p className="text-[13px] font-semibold mb-1 flex items-center flex-wrap gap-1.5" style={{ color: "var(--club-text-muted)" }}>
+          <span style={{ color: "var(--club-text-main)" }}>{bowler || "Bowler"}</span>
+          <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ backgroundColor: "color-mix(in srgb, var(--club-primary) 10%, transparent)", color: "var(--club-primary)" }}>Bowler</span>
+          <span>to</span>
+          <span style={{ color: "var(--club-text-main)" }}>{batsman || "Batsman"}</span>
+          <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ backgroundColor: "color-mix(in srgb, var(--club-primary) 10%, transparent)", color: "var(--club-primary)" }}>Batsman</span>
         </p>
-        <p className="text-xs mt-0.5" style={{ color: "var(--club-text-muted)" }}>
-          {overLabel}{batsman ? ` · ${batsman}` : ""}{bowler ? ` → ${bowler}` : ""}
+        <p className="text-sm leading-relaxed font-medium" style={{ color: "var(--club-text-main)" }}>
+          {ev.description || (isWicket ? (
+            <span className="text-red-500 font-bold">OUT! {ev.wicket?.type?.replace(/-/g, ' ') || ""}</span>
+          ) : isSix ? (
+            <span className="text-purple-500 font-bold">SIX runs!</span>
+          ) : isFour ? (
+            <span className="text-blue-500 font-bold">FOUR runs!</span>
+          ) : isExtra ? (
+            <span>{ev.extras?.runs} {ev.extraType || ev.eventType}</span>
+          ) : (
+            `${ev.runs ?? 0} run${ev.runs !== 1 ? "s" : ""}`
+          ))}
         </p>
       </div>
     </div>

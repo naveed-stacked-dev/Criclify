@@ -25,6 +25,7 @@ const inningsSummarySchema = new mongoose.Schema(
         sixes: { type: Number, default: 0 },
         isOut: { type: Boolean, default: false },
         dismissalType: { type: String, default: null },
+        isDuckOut: { type: Boolean, default: false },
       },
     ],
     bowlingFigures: [
@@ -89,6 +90,12 @@ const matchSummarySchema = new mongoose.Schema(
     lastEvent: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'MatchEvent',
+    },
+    lastDuckOut: {
+      playerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Player', default: null },
+      playerName: { type: String, default: null },
+      dismissalType: { type: String, default: null },
+      timestamp: { type: Date, default: null },
     },
     target: {
       type: Number,

@@ -16,6 +16,7 @@ export default function useLiveMatches(clubId) {
   const [liveMatches, setLiveMatches] = useState([]);
   const [liveSummaries, setLiveSummaries] = useState({}); // matchId → summary
   const [loading, setLoading] = useState(true);
+  const [animationEvent, setAnimationEvent] = useState(null); // { matchId, playerName, type }
 
   // Fetch initial live matches via REST
   const fetchLiveMatches = useCallback(async () => {
@@ -87,11 +88,59 @@ export default function useLiveMatches(clubId) {
       }
     });
 
+    // Listen for duck-out events
+    const unsubDuckOut = onEvent("duck_out", (data) => {
+      if (data?.matchId) {
+        setAnimationEvent({
+          matchId: data.matchId,
+          playerName: data.playerName || "Unknown",
+          type: "duckout"
+        });
+      }
+    });
+
+    // Listen for four events
+    const unsubFour = onEvent("four", (data) => {
+      if (data?.matchId) {
+        setAnimationEvent({
+          matchId: data.matchId,
+          playerName: data.playerName || "Unknown",
+          type: "four"
+        });
+      }
+    });
+
+    // Listen for six events
+    const unsubSix = onEvent("six", (data) => {
+      if (data?.matchId) {
+        setAnimationEvent({
+          matchId: data.matchId,
+          playerName: data.playerName || "Unknown",
+          type: "six"
+        });
+      }
+    });
+
+    // Listen for regular out events
+    const unsubOut = onEvent("out", (data) => {
+      if (data?.matchId) {
+        setAnimationEvent({
+          matchId: data.matchId,
+          playerName: data.playerName || "Unknown",
+          type: "out"
+        });
+      }
+    });
+
     return () => {
       leaveClub(clubId);
       socket.off("connect", handleConnect);
       unsubClub();
       unsubEnded();
+      unsubDuckOut();
+      unsubFour();
+      unsubSix();
+      unsubOut();
     };
   }, [clubId]);
 
@@ -99,6 +148,7 @@ export default function useLiveMatches(clubId) {
     liveMatches,
     liveSummaries,
     loading,
+    animationEvent,
     refetch: fetchLiveMatches,
   };
 }

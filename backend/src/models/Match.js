@@ -2,6 +2,12 @@ const mongoose = require('mongoose');
 
 const matchSchema = new mongoose.Schema(
   {
+    slug: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true,
+    },
     teamA: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Team',
@@ -132,11 +138,6 @@ const matchSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    // Human-readable label: "QF1", "SF2", "Final"
-    matchLabel: {
-      type: String,
-      default: null,
-    },
     assignedManager: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'MatchManager',
@@ -150,6 +151,57 @@ const matchSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+/** Build a URL-safe slug string from arbitrary text */
+function toSlugPart(str) {
+  return String(str || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+/**
+ * Auto-generate slug before each save.
+ * Pattern: <teamA-slug>-vs-<teamB-slug>[-m<matchNumber>]-<shortId>
+ * Falls back to using the document's _id suffix so it's always unique.
+ */
+matchSchema.pre('save', async function (next) {
+  // Only (re)generate when slug is missing or teams changed
+  if (this.slug && !this.isModified('teamA') && !this.isModified('teamB') && !this.isModified('matchNumber')) {
+    return next();
+  }
+
+  try {
+    const Team = mongoose.model('Team');
+    const shortId = this._id.toString().slice(-6);
+
+    let teamAName = '';
+    let teamBName = '';
+
+    if (this.teamA) {
+      const tA = await Team.findById(this.teamA).select('name').lean();
+      if (tA) teamAName = toSlugPart(tA.name);
+    }
+    if (this.teamB) {
+      const tB = await Team.findById(this.teamB).select('name').lean();
+      if (tB) teamBName = toSlugPart(tB.name);
+    }
+
+    const parts = [];
+    if (teamAName) parts.push(teamAName);
+    parts.push('vs');
+    if (teamBName) parts.push(teamBName);
+    if (this.matchNumber != null) parts.push(`m${this.matchNumber}`);
+    parts.push(shortId);
+
+    this.slug = parts.join('-');
+  } catch {
+    // Fallback: just use short _id
+    this.slug = this._id.toString().slice(-8);
+  }
+
+  next();
+});
 
 matchSchema.index({ clubId: 1, status: 1 });
 matchSchema.index({ tournamentId: 1, status: 1 });

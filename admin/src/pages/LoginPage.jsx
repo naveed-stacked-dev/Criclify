@@ -53,7 +53,7 @@ export default function LoginPage({ role: roleProp }) {
   const Icon = config.icon;
   const isScorer = role === "match-manager";
 
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
@@ -67,7 +67,9 @@ export default function LoginPage({ role: roleProp }) {
     setFieldErrors({});
     setIsLoading(true);
     try {
-      const credentials = { email, password };
+      const credentials = isScorer 
+        ? { name: identifier, password } 
+        : { email: identifier, password };
       if (isScorer && token) credentials.token = token;
       await login(role, credentials);
       toast.success("Welcome back!");
@@ -122,29 +124,24 @@ export default function LoginPage({ role: roleProp }) {
         >
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Sign in to continue</CardTitle>
-            {isScorer && token && (
-              <CardDescription className="text-emerald-500 font-medium text-xs">
-                Token detected — you can sign in with just email & password or use the token link directly.
-              </CardDescription>
-            )}
           </CardHeader>
           <CardContent className="pt-4">
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="identifier">{isScorer ? "Name" : "Email"}</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="Enter your email"
-                  value={email}
-                  onChange={(e) => { setEmail(e.target.value); clearFieldError("email"); }}
+                  id="identifier"
+                  type={isScorer ? "text" : "email"}
+                  placeholder={`Enter your ${isScorer ? "name" : "email"}`}
+                  value={identifier}
+                  onChange={(e) => { setIdentifier(e.target.value); clearFieldError("identifier"); }}
                   required={!isScorer || !token}
-                  autoComplete="email"
-                  className={fieldErrors.email ? "border-destructive focus-visible:ring-destructive" : ""}
+                  autoComplete={isScorer ? "username" : "email"}
+                  className={fieldErrors.identifier ? "border-destructive focus-visible:ring-destructive" : ""}
                 />
-                {fieldErrors.email && (
+                {fieldErrors.identifier && (
                   <p className="text-xs text-destructive flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" /> {fieldErrors.email}
+                    <AlertCircle className="w-3 h-3" /> {fieldErrors.identifier}
                   </p>
                 )}
               </div>

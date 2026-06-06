@@ -22,7 +22,7 @@ import useLiveMatches from "../hooks/useLiveMatches";
 export default function ClubHomePage() {
   const { club, tournaments } = useOutletContext();
   const clubId = club?._id || club?.id;
-  const { liveMatches, liveSummaries, loading: liveLoading } = useLiveMatches(clubId);
+  const { liveMatches, liveSummaries, loading: liveLoading, animationEvent } = useLiveMatches(clubId);
 
   return (
     <div className="space-y-6">
@@ -54,6 +54,11 @@ export default function ClubHomePage() {
                 key={match._id || match.id}
                 match={match}
                 summary={liveSummaries[match._id || match.id]}
+                animationEvent={
+                  animationEvent?.matchId === (match._id || match.id)
+                    ? animationEvent
+                    : null
+                }
               />
             ))}
           </div>

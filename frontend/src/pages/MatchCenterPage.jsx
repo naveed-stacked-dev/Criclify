@@ -4,9 +4,11 @@ import { motion } from "framer-motion";
 import { io } from "socket.io-client";
 import publicService from "@/services/publicService";
 import { Radio, Loader2, Calendar, PlayCircle, Eye, ArrowLeft } from "lucide-react";
+import { decodeId } from "@/utils/crypto";
 
 export default function MatchCenterPage() {
-  const { id } = useParams();
+  const { id: rawId } = useParams();
+  const id = decodeId(rawId);
   const navigate = useNavigate();
   const [match, setMatch] = useState(null);
   const [scorecard, setScorecard] = useState(null);
@@ -208,24 +210,85 @@ export default function MatchCenterPage() {
               <p className="text-gray-500 text-sm">No events yet</p>
             </div>
           ) : (
-            <div className="border border-white/5 rounded-2xl bg-white/[0.02] p-4 max-h-[500px] overflow-y-auto space-y-2">
-              {[...events].reverse().map((ev, idx) => (
-                <div key={idx} className="flex items-start gap-3 p-2 rounded-lg hover:bg-white/[0.02] transition-colors">
-                  <span className={`mt-0.5 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-                    ev.type === "wicket" ? "bg-red-500/10 text-red-400" :
-                    ev.runs === 4 ? "bg-blue-500/10 text-blue-400" :
-                    ev.runs === 6 ? "bg-violet-500/10 text-violet-400" :
-                    ev.type === "extra" ? "bg-amber-500/10 text-amber-400" :
-                    "bg-white/5 text-gray-400"
-                  }`}>
-                    {ev.type === "wicket" ? "W" : ev.type === "extra" ? ev.extraType?.[0]?.toUpperCase() || "E" : ev.runs}
-                  </span>
-                  <div>
-                    <p className="text-sm text-white">{ev.description || `${ev.runs || 0} run${ev.runs !== 1 ? "s" : ""}`}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">Over {ev.over || "?"}</p>
+            <div data-lenis-prevent className="max-h-[500px] overflow-y-auto overscroll-contain pr-2 space-y-4">
+              {(() => {
+                const groupedEvents = [];
+                let currentGroup = null;
+                [...events].forEach((ev) => {
+                  if (!currentGroup || currentGroup.over !== ev.over) {
+                    currentGroup = { over: ev.over, events: [], totalRuns: 0, hasWicket: false };
+                    groupedEvents.push(currentGroup);
+                  }
+                  currentGroup.events.push(ev);
+                  currentGroup.totalRuns += (ev.runs || 0) + (ev.extras?.runs || 0);
+                  if (ev.isWicket || ev.eventType === "wicket") currentGroup.hasWicket = true;
+                });
+
+                return groupedEvents.map((group, idx) => (
+                  <div key={idx} className="border border-white/5 rounded-2xl bg-white/[0.02] overflow-hidden">
+                    <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
+                      <span className="font-semibold text-sm text-white">Over {group.over}</span>
+                      <div className="flex gap-2 items-center">
+                        {group.hasWicket && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 uppercase tracking-wide">Wicket</span>}
+                        <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-white/5 text-gray-300">
+                          {group.totalRuns} Run{group.totalRuns !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="divide-y divide-white/5">
+                      {group.events.map((ev, i) => {
+                        const isWicket = ev.isWicket || ev.eventType === "wicket";
+                        const isSix = ev.isSix || ev.runs === 6;
+                        const isFour = ev.isBoundary || ev.runs === 4;
+                        const isExtra = ["wide", "noball", "bye", "legbye"].includes(ev.eventType);
+
+                        const badge = isWicket ? { bg: "bg-red-500/15", color: "text-red-400", border: "border-red-500/30", label: "W" }
+                          : isSix ? { bg: "bg-violet-500/15", color: "text-violet-400", border: "border-violet-500/30", label: "6" }
+                          : isFour ? { bg: "bg-blue-500/15", color: "text-blue-400", border: "border-blue-500/30", label: "4" }
+                          : isExtra ? { bg: "bg-amber-500/15", color: "text-amber-400", border: "border-amber-500/30", label: ev.extraType?.[0]?.toUpperCase() || ev.eventType?.[0]?.toUpperCase() || "E" }
+                          : { bg: "bg-white/5", color: "text-gray-300", border: "border-white/5", label: ev.runs ?? "·" };
+
+                        const batsman = ev.batsmanId?.name || ev.batsmanId;
+                        const bowler = ev.bowlerId?.name || ev.bowlerId;
+                        const ballNumber = `${ev.over ?? "?"}.${ev.ball ?? "?"}`;
+
+                        return (
+                          <div key={i} className="flex items-start gap-4 p-4 hover:bg-white/[0.02] transition-colors group">
+                            <div className="flex flex-col items-center shrink-0 w-12 pt-0.5">
+                              <span className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-black border transition-transform group-hover:scale-110 shadow-sm ${badge.bg} ${badge.color} ${badge.border}`}>
+                                {badge.label}
+                              </span>
+                              <span className="text-[10px] font-bold mt-2 text-gray-500 tracking-wide">{ballNumber}</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[13px] font-semibold text-gray-500 mb-1 flex items-center flex-wrap gap-1.5">
+                                <span className="text-gray-300">{bowler || "Bowler"}</span>
+                                <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400">Bowler</span>
+                                <span>to</span>
+                                <span className="text-gray-300">{batsman || "Batsman"}</span>
+                                <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400">Batsman</span>
+                              </p>
+                              <p className="text-sm font-medium text-gray-200 leading-relaxed">
+                                {ev.description || (isWicket ? (
+                                  <span className="text-red-400 font-bold">OUT! {ev.wicket?.type?.replace(/-/g, ' ') || ""}</span>
+                                ) : isSix ? (
+                                  <span className="text-violet-400 font-bold">SIX runs!</span>
+                                ) : isFour ? (
+                                  <span className="text-blue-400 font-bold">FOUR runs!</span>
+                                ) : isExtra ? (
+                                  <span>{ev.extras?.runs} {ev.extraType || ev.eventType}</span>
+                                ) : (
+                                  `${ev.runs ?? 0} run${ev.runs !== 1 ? "s" : ""}`
+                                ))}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ));
+              })()}
             </div>
           )}
         </motion.div>

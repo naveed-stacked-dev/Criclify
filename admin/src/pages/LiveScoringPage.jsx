@@ -6,7 +6,7 @@ import { io } from "socket.io-client";
 import scoringService from "@/services/scoringService";
 import matchService from "@/services/matchService";
 import teamService from "@/services/teamService";
-import { decodeId } from "@/utils/crypto";
+import { decodeId, encodeId } from "@/utils/crypto";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PlayCircle, RotateCcw, AlertTriangle, UserMinus, SkipForward, Ban, Loader2, Clock, PauseCircle, Pencil, Trophy } from "lucide-react";
+import { PlayCircle, RotateCcw, AlertTriangle, UserMinus, SkipForward, Ban, Loader2, Clock, PauseCircle, Pencil, Trophy, Monitor } from "lucide-react";
 
 const getPlayerId = (player) => player?._id || player?.id || player;
 
@@ -794,6 +794,15 @@ export default function LiveScoringPage() {
                   style={{ backgroundColor: `${themeColor}10`, color: themeColor, borderColor: `${themeColor}30` }}
                 >
                   <PauseCircle className="w-4 h-4 mr-2" /> Pause
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  title="Open TV display in new tab"
+                  onClick={() => window.open(`${import.meta.env.VITE_FRONTEND_URL || "http://localhost:5173"}/tv/${encodeId(matchId)}`, "_blank")}
+                  style={{ borderColor: `${themeColor}40`, color: themeColor, backgroundColor: `${themeColor}08` }}
+                >
+                  <Monitor className="w-4 h-4 mr-2" /> TV Display
                 </Button>
                 <Button variant="destructive" size="sm" onClick={() => setShowEnd(true)}>
                   <Ban className="w-4 h-4 mr-2" /> End Match

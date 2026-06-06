@@ -26,6 +26,7 @@ import ClubGalleryPage from "./club/pages/ClubGalleryPage";
 import ClubMatchDetailPage from "./club/pages/ClubMatchDetailPage";
 import ClubPlayerProfilePage from "./club/pages/ClubPlayerProfilePage";
 import ClubTeamDetailPage from "./club/pages/ClubTeamDetailPage";
+import TvDisplayPage from "./pages/TvDisplayPage";
 
 export default function App() {
   return (
@@ -60,6 +61,9 @@ export default function App() {
         >
           <Route path="/*" element={null} />
         </Route>
+
+        {/* ─── TV Display — standalone, no chrome ─── */}
+        <Route path="/tv/:matchId" element={<TvDisplayPage />} />
 
         {/* ─── Club Portal (own layout, no global Navbar/Footer) ─── */}
         <Route path="/clubs/:slug" element={<ClubLayout />}>

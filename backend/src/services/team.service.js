@@ -1,26 +1,30 @@
 const Team = require('../models/Team');
 const Player = require('../models/Player');
+const PlayerStatsCache = require('../models/PlayerStatsCache');
 const ApiError = require('../utils/ApiError');
 
-/**
- * Create a team within a club.
- */
 const createTeam = async (data) => {
   const existing = await Team.findOne({ clubId: data.clubId, name: data.name });
-  if (existing) {
-    throw ApiError.conflict('A team with this name already exists in the club');
-  }
-  const team = await Team.create(data);
+  if (existing) throw ApiError.conflict('A team with this name already exists in the club');
+  const team = await Team.create(data); // approved defaults to true (admin-created)
   return team;
 };
 
 /**
- * Get all teams in a club with pagination.
+ * Get teams for a club. approvedFilter: true = approved only, false = pending only, null = all.
  */
-const getTeamsByClub = async (clubId, { skip, limit }) => {
+const getTeamsByClub = async (clubId, { skip, limit }, approvedFilter = null) => {
+  const filter = { clubId };
+  if (approvedFilter === true) {
+    // Match approved:true OR documents that predate the field (no approved field yet)
+    filter.approved = { $ne: false };
+  } else if (approvedFilter === false) {
+    filter.approved = false;
+  }
+
   const [teams, total] = await Promise.all([
-    Team.find({ clubId }).sort({ name: 1 }).skip(skip).limit(limit).lean(),
-    Team.countDocuments({ clubId }),
+    Team.find(filter).sort({ name: 1 }).skip(skip).limit(limit).lean(),
+    Team.countDocuments(filter),
   ]);
 
   const teamsWithCount = await Promise.all(
@@ -33,39 +37,24 @@ const getTeamsByClub = async (clubId, { skip, limit }) => {
   return { teams: teamsWithCount, total };
 };
 
-/**
- * Get a single team by ID.
- */
 const getTeamById = async (id) => {
   const team = await Team.findById(id).populate('clubId', 'name slug');
   if (!team) throw ApiError.notFound('Team not found');
   return team;
 };
 
-/**
- * Update a team.
- */
 const updateTeam = async (id, data) => {
-  const team = await Team.findByIdAndUpdate(id, data, {
-    new: true,
-    runValidators: true,
-  });
+  const team = await Team.findByIdAndUpdate(id, data, { new: true, runValidators: true });
   if (!team) throw ApiError.notFound('Team not found');
   return team;
 };
 
-/**
- * Delete a team.
- */
 const deleteTeam = async (id) => {
   const team = await Team.findByIdAndDelete(id);
   if (!team) throw ApiError.notFound('Team not found');
   return team;
 };
 
-/**
- * Add a player to the team.
- */
 const addPlayerToTeam = async (teamId, playerId) => {
   const team = await Team.findById(teamId);
   if (!team) throw ApiError.notFound('Team not found');
@@ -83,8 +72,54 @@ const addPlayerToTeam = async (teamId, playerId) => {
 
   player.teamId = teamId;
   await player.save();
-
   return player;
+};
+
+/**
+ * Public team registration — creates team with approved:false and bulk-inserts players.
+ * Image URLs (team logo, player avatars) are uploaded to S3 by the controller beforehand.
+ */
+const submitTeamPublic = async ({ clubId, name, logo, players }) => {
+  if (!players || players.length < 12) throw ApiError.badRequest('Minimum 12 players are required');
+  if (players.length > 35) throw ApiError.badRequest('Maximum 35 players allowed');
+
+  const existing = await Team.findOne({ clubId, name });
+  if (existing) throw ApiError.conflict('A team with this name already exists in this club');
+
+  const team = await Team.create({
+    clubId,
+    name,
+    logo: logo || null,
+    approved: false,
+  });
+
+  const playerDocs = players.map((p) => ({
+    name: p.name,
+    role: p.role,
+    jerseyNumber: p.jerseyNumber || null,
+    phone: p.phone || null,
+    battingStyle: p.battingStyle || 'right-hand',
+    bowlingStyle: p.bowlingStyle || null,
+    avatar: p.avatar || null,
+    clubId,
+    teamId: team._id,
+    approved: false,
+  }));
+
+  const createdPlayers = await Player.insertMany(playerDocs);
+
+  await PlayerStatsCache.insertMany(
+    createdPlayers.map((p) => ({ playerId: p._id, clubId }))
+  );
+
+  return { team, playerCount: createdPlayers.length };
+};
+
+const approveTeam = async (id) => {
+  const team = await Team.findByIdAndUpdate(id, { approved: true }, { new: true });
+  if (!team) throw ApiError.notFound('Team not found');
+  await Player.updateMany({ teamId: team._id }, { $set: { approved: true } });
+  return team;
 };
 
 module.exports = {
@@ -94,4 +129,6 @@ module.exports = {
   updateTeam,
   deleteTeam,
   addPlayerToTeam,
+  submitTeamPublic,
+  approveTeam,
 };

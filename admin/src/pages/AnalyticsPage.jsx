@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAppContext } from "@/hooks/useAppContext";
 import clubService from "@/services/clubService";
@@ -44,10 +45,17 @@ function LeaderboardTable({ data = [], valueKey, valueFormatter, emptyText }) {
               >
                 {idx + 1}
               </span>
-              <div>
-                <p className="font-medium text-sm leading-tight">{entry.player?.name || "Unknown"}</p>
-                <p className="text-xs text-muted-foreground">{entry.player?.team?.name || "—"}</p>
-              </div>
+              {entry.player?.id ? (
+                <Link to={`/players/${entry.player.id}`} className="group">
+                  <p className="font-medium text-sm leading-tight group-hover:underline">{entry.player?.name || "Unknown"}</p>
+                  <p className="text-xs text-muted-foreground">{entry.player?.team?.name || "—"}</p>
+                </Link>
+              ) : (
+                <div>
+                  <p className="font-medium text-sm leading-tight">{entry.player?.name || "Unknown"}</p>
+                  <p className="text-xs text-muted-foreground">{entry.player?.team?.name || "—"}</p>
+                </div>
+              )}
             </div>
             <span className="font-bold text-base" style={{ color: themeColor }}>{displayVal ?? "—"}</span>
           </div>

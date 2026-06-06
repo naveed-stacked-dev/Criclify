@@ -1,12 +1,19 @@
 import { useEffect } from "react";
 import { useAppContext } from "@/hooks/useAppContext";
 
-/**
- * Custom hook to dynamically update the document title and meta description
- * based on the authenticated user's role and associated club.
- */
+function setFavicon(href) {
+  let link = document.querySelector("link[rel~='icon']");
+  if (!link) {
+    link = document.createElement("link");
+    link.rel = "icon";
+    document.head.appendChild(link);
+  }
+  link.type = href.endsWith(".svg") ? "image/svg+xml" : "image/png";
+  link.href = href;
+}
+
 export function useDynamicHead() {
-  const { isSuperAdmin, isClubManager, isMatchManager, clubName, isAuthenticated } = useAppContext();
+  const { isSuperAdmin, isClubManager, isMatchManager, clubName, clubLogo, isAuthenticated } = useAppContext();
 
   useEffect(() => {
     let title = "CricArena Management";
@@ -16,30 +23,30 @@ export function useDynamicHead() {
       if (isSuperAdmin) {
         title = "CricArena | SuperAdmin Portal";
         description = "Global administration and league management for CricArena.";
+        setFavicon("/logo.png");
       } else if (isClubManager) {
         title = `${clubName || "Club"} | Club Management`;
         description = `Manage your club (${clubName || "assigned club"}), tournaments, teams, and players.`;
+        setFavicon(clubLogo || "/logo.png");
       } else if (isMatchManager) {
         title = "Match Scorer | CricArena";
         description = "Live match scoring and scheduling management for assigned fixtures.";
+        setFavicon(clubLogo || "/logo.png");
       }
+    } else {
+      setFavicon("/favicon.svg");
     }
 
-    // Update Document Title
     document.title = title;
 
-    // Update Meta Description
     const metaDescription = document.querySelector('meta[name="description"]');
-    if (metaDescription) {
-      metaDescription.setAttribute("content", description);
-    }
+    if (metaDescription) metaDescription.setAttribute("content", description);
 
-    // Update Open Graph Title/Description if they exist
     const ogTitle = document.querySelector('meta[property="og:title"]');
     if (ogTitle) ogTitle.setAttribute("content", title);
 
     const ogDesc = document.querySelector('meta[property="og:description"]');
     if (ogDesc) ogDesc.setAttribute("content", description);
 
-  }, [isSuperAdmin, isClubManager, isMatchManager, clubName, isAuthenticated]);
+  }, [isSuperAdmin, isClubManager, isMatchManager, clubName, clubLogo, isAuthenticated]);
 }

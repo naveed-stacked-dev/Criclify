@@ -19,7 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Calendar, Plus, MoreHorizontal, Pencil, KeyRound, Loader2, Search, Link as LinkIcon, PlayCircle, Shield } from "lucide-react";
+import { Calendar, Plus, MoreHorizontal, Pencil, KeyRound, Loader2, Search, Link as LinkIcon, PlayCircle, Shield, Monitor } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { encodeId } from "@/utils/crypto";
 
@@ -47,7 +47,7 @@ export default function MatchesPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const [form, setForm] = useState({ teamA: "", teamB: "", tournament: "", venue: "", startTime: "", overs: "20" });
-  const [assignForm, setAssignForm] = useState({ email: "", password: "", name: "" });
+  const [assignForm, setAssignForm] = useState({ name: "", password: "" });
   const [streamForm, setStreamForm] = useState({ streamUrl: "" });
   const [scorerLink, setScorerLink] = useState("");
 
@@ -74,7 +74,7 @@ export default function MatchesPage() {
     try {
       const [tRes, tmRes, mRes] = await Promise.allSettled([
         tournamentService.getByClub(selectedClub),
-        teamService.getByClub(selectedClub),
+        teamService.getByClub(selectedClub, { approved: "true" }),
         selectedTournament === "all" 
           ? matchService.getAll({ club: selectedClub })
           : matchService.getByTournament(selectedTournament)
@@ -109,13 +109,13 @@ export default function MatchesPage() {
 
   const handleAssignManager = async () => {
     if (!assignForm.name.trim()) return toast.error("Scorer name is required");
+    if (!assignForm.password.trim()) return toast.error("Password is required");
     setSubmitting(true);
     try {
       await authService.createMatchManager({
         matchId: selected._id || selected.id,
         clubId: selectedClub,
         name: assignForm.name,
-        ...(assignForm.email.trim() && { email: assignForm.email }),
         ...(assignForm.password.trim() && { password: assignForm.password }),
       });
       toast.success("Match Manager assigned");
@@ -129,11 +129,17 @@ export default function MatchesPage() {
   const handleUpdateStream = async () => {
     setSubmitting(true);
     try {
-      await matchService.updateStreamUrl(selected._id || selected.id, { streamUrl: streamForm.streamUrl });
+      await matchService.updateStreamUrl(selected._id || selected.id, { youtubeStreamUrl: streamForm.streamUrl });
       toast.success("Stream URL updated");
       setShowStream(false);
       fetchData();
     } catch { /* interceptor */ } finally { setSubmitting(false); }
+  };
+
+  const copyTvLink = (match) => {
+    const base = import.meta.env.VITE_FRONTEND_URL || "http://localhost:5173";
+    const url = `${base}/tv/${encodeId(match._id || match.id)}`;
+    navigator.clipboard.writeText(url).then(() => toast.success("TV display link copied!"));
   };
 
   const generateLink = async (match) => {
@@ -307,6 +313,8 @@ export default function MatchesPage() {
                             <DropdownMenuItem onClick={() => openAssign(m)}><KeyRound className="w-4 h-4 mr-2" /> Assign Scorer</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => generateLink(m)}><LinkIcon className="w-4 h-4 mr-2" /> Copy Scorer Link</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => openStream(m)}><PlayCircle className="w-4 h-4 mr-2" /> Update Stream URL</DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => copyTvLink(m)}><Monitor className="w-4 h-4 mr-2" /> Copy TV Display Link</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -373,8 +381,7 @@ export default function MatchesPage() {
           <DialogHeader><DialogTitle style={{ color: themeColor }}>Assign Match Manager</DialogTitle><DialogDescription>Create a dedicated scorer account for this match.</DialogDescription></DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2"><Label>Name <span className="text-destructive">*</span></Label><Input placeholder="Scorer Name" value={assignForm.name} onChange={(e) => setAssignForm({ ...assignForm, name: e.target.value })} /></div>
-            <div className="space-y-2"><Label>Email <span className="text-muted-foreground text-xs">(optional)</span></Label><Input type="email" placeholder="scorer@example.com" value={assignForm.email} onChange={(e) => setAssignForm({ ...assignForm, email: e.target.value })} /></div>
-            <div className="space-y-2"><Label>Password <span className="text-muted-foreground text-xs">(optional — token link will be generated)</span></Label><PasswordInput value={assignForm.password} onChange={(e) => setAssignForm({ ...assignForm, password: e.target.value })} /></div>
+            <div className="space-y-2"><Label>Password <span className="text-destructive">*</span></Label><PasswordInput value={assignForm.password} onChange={(e) => setAssignForm({ ...assignForm, password: e.target.value })} /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAssign(false)}>Cancel</Button>

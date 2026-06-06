@@ -12,6 +12,19 @@ const Tournament = require('../models/Tournament');
 const MatchSummary = require('../models/MatchSummary');
 const Player = require('../models/Player');
 const { getCachedSummary } = require('../services/liveScoreRedis');
+const mongoose = require('mongoose');
+
+/**
+ * Resolve a slug or ObjectId string to a real MongoDB ObjectId string.
+ * Returns the original string if it's already a valid ObjectId.
+ */
+const resolveMatchId = async (idOrSlug) => {
+  const isObjectId = mongoose.Types.ObjectId.isValid(idOrSlug) && idOrSlug.length === 24;
+  if (isObjectId) return idOrSlug;
+  const match = await Match.findOne({ slug: idOrSlug }).select('_id').lean();
+  if (!match) throw new Error('Match not found');
+  return match._id.toString();
+};
 
 // We re-export only the reads that are publicly accessible without authentication.
 
@@ -95,9 +108,9 @@ const getLiveMatches = async (req, res, next) => {
         }
         // Always fetch from DB with populated player names for display
         const dbSummary = await MatchSummary.findOne({ matchId: m._id })
-          .populate('currentBatsmen.striker.playerId', 'name')
-          .populate('currentBatsmen.nonStriker.playerId', 'name')
-          .populate('currentBowler.playerId', 'name')
+          .populate('currentBatsmen.striker.playerId', 'name avatar')
+          .populate('currentBatsmen.nonStriker.playerId', 'name avatar')
+          .populate('currentBowler.playerId', 'name avatar')
           .lean();
         if (dbSummary) {
           // Merge: use Redis scores (fresher) but DB player names
@@ -179,7 +192,8 @@ const getMatchById = async (req, res, next) => {
 
 const getMatchSummary = async (req, res, next) => {
   try {
-    const summary = await scoringService.getMatchSummary(req.params.id);
+    const matchId = await resolveMatchId(req.params.id);
+    const summary = await scoringService.getMatchSummary(matchId);
     res.json(ApiResponse.ok(summary));
   } catch (error) {
     next(error);
@@ -188,7 +202,8 @@ const getMatchSummary = async (req, res, next) => {
 
 const getMatchScorecard = async (req, res, next) => {
   try {
-    const scorecard = await scoringService.getScorecard(req.params.id);
+    const matchId = await resolveMatchId(req.params.id);
+    const scorecard = await scoringService.getScorecard(matchId);
     res.json(ApiResponse.ok(scorecard));
   } catch (error) {
     next(error);
@@ -197,7 +212,8 @@ const getMatchScorecard = async (req, res, next) => {
 
 const getMatchEvents = async (req, res, next) => {
   try {
-    const events = await scoringService.getMatchEvents(req.params.id);
+    const matchId = await resolveMatchId(req.params.id);
+    const events = await scoringService.getMatchEvents(matchId);
     res.json(ApiResponse.ok(events));
   } catch (error) {
     next(error);
@@ -207,7 +223,7 @@ const getMatchEvents = async (req, res, next) => {
 // ─── Teams & Players ───
 const getTeamsByClub = async (req, res, next) => {
   try {
-    const { teams, total } = await teamService.getTeamsByClub(req.params.clubId, req.pagination);
+    const { teams, total } = await teamService.getTeamsByClub(req.params.clubId, req.pagination, true);
     const pagination = buildPaginationResponse(total, req.pagination);
     res.json(ApiResponse.paginated(teams, pagination));
   } catch (error) {
@@ -217,7 +233,7 @@ const getTeamsByClub = async (req, res, next) => {
 
 const getPlayersByClub = async (req, res, next) => {
   try {
-    const { players, total } = await playerService.getPlayersByClub(req.params.clubId, req.pagination);
+    const { players, total } = await playerService.getPlayersByClub(req.params.clubId, req.pagination, null, true);
     const pagination = buildPaginationResponse(total, req.pagination);
     res.json(ApiResponse.paginated(players, pagination));
   } catch (error) {
@@ -228,6 +244,9 @@ const getPlayersByClub = async (req, res, next) => {
 const getPlayerById = async (req, res, next) => {
   try {
     const { player, stats } = await playerService.getPlayerById(req.params.id);
+    if (player.approved === false) {
+      return res.status(404).json(ApiResponse.error('Player not found'));
+    }
     res.json(ApiResponse.ok({ player, stats }));
   } catch (error) {
     next(error);
@@ -259,10 +278,17 @@ const getTeamPublic = async (req, res, next) => {
   try {
     const { id } = req.params;
 
+    const teamDoc = await teamService.getTeamById(id);
+    if (teamDoc.approved === false) {
+      return res.status(404).json(ApiResponse.error('Team not found'));
+    }
+
+    const approvedPlayerFilter = { teamId: id, approved: { $ne: false } };
+
     const [team, playerCount, players, matches] = await Promise.all([
-      teamService.getTeamById(id),
-      Player.countDocuments({ teamId: id }),
-      Player.find({ teamId: id }).select('name role jerseyNumber photo').sort({ name: 1 }).lean(),
+      Promise.resolve(teamDoc),
+      Player.countDocuments(approvedPlayerFilter),
+      Player.find(approvedPlayerFilter).select('name role jerseyNumber photo').sort({ name: 1 }).lean(),
       Match.find({ $or: [{ teamA: id }, { teamB: id }] })
         .populate('teamA', 'name logo shortName')
         .populate('teamB', 'name logo shortName')

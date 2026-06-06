@@ -8,6 +8,7 @@ const teamService = {
   remove: (id) => apiClient.delete(`/teams/${id}`),
   addPlayer: (teamId, data) => apiClient.post(`/teams/${teamId}/add-player`, data),
   getPlayers: (teamId) => apiClient.get(`/teams/${teamId}/players`),
+  approve: (id) => apiClient.put(`/teams/${id}/approve`),
 };
 
 export default teamService;

@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import publicService from "@/services/publicService";
 import { Swords, Calendar, Loader2, Trophy } from "lucide-react";
+import { encodeId } from "@/utils/crypto";
 
 export default function TournamentCenterPage() {
   const { id } = useParams();
@@ -130,7 +131,7 @@ export default function TournamentCenterPage() {
             matches.map((m) => (
               <Link
                 key={m._id || m.id}
-                to={`/matches/${m._id || m.id}`}
+                to={`/matches/${encodeId(m._id || m.id)}`}
                 className="group block border border-white/5 rounded-xl bg-white/[0.02] p-4 hover:border-emerald-500/30 transition-all"
               >
                 <div className="flex items-center justify-between">

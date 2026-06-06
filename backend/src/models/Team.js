@@ -33,6 +33,11 @@ const teamSchema = new mongoose.Schema(
       required: [true, 'Club ID is required'],
       index: true,
     },
+    approved: {
+      type: Boolean,
+      default: true,
+      index: true,
+    },
   },
   { timestamps: true }
 );

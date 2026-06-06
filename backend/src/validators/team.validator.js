@@ -28,8 +28,38 @@ const addPlayerSchema = Joi.object({
     .messages({ 'any.required': 'Player ID is required' }),
 });
 
+const playerSubmitSchema = Joi.object({
+  name: Joi.string().trim().min(2).max(100).required()
+    .messages({ 'any.required': 'Player name is required', 'string.min': 'Player name must be at least 2 characters' }),
+  role: Joi.string().valid('batsman', 'bowler', 'allrounder', 'wicketkeeper').required()
+    .messages({ 'any.required': 'Player role is required', 'any.only': 'Role must be batsman, bowler, allrounder or wicketkeeper' }),
+  jerseyNumber: Joi.string().max(4).optional().allow('', null),
+  phone: Joi.string().pattern(/^[\d+]{7,15}$/).optional().allow('', null)
+    .messages({ 'string.pattern.base': 'Phone must be 7-15 digits' }),
+  battingStyle: Joi.string().valid('right-hand', 'left-hand').optional().allow('', null),
+  bowlingStyle: Joi.string().optional().allow('', null),
+});
+
+const publicSubmitTeamSchema = Joi.object({
+  clubId: objectId.required()
+    .messages({ 'any.required': 'Club ID is required' }),
+  name: Joi.string().trim().min(2).max(100).required()
+    .messages({ 'any.required': 'Team name is required', 'string.min': 'Team name must be at least 2 characters' }),
+  players: Joi.array()
+    .min(12)
+    .max(35)
+    .items(playerSubmitSchema)
+    .required()
+    .messages({
+      'any.required': 'Players list is required',
+      'array.min': 'At least 12 players are required',
+      'array.max': 'Maximum 35 players allowed',
+    }),
+});
+
 module.exports = {
   createTeamSchema,
   updateTeamSchema,
   addPlayerSchema,
+  publicSubmitTeamSchema,
 };

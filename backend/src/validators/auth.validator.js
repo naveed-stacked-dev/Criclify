@@ -19,7 +19,9 @@ const loginSchema = Joi.object({
     .messages({ 'any.required': 'Password is required' }),
 });
 
-const matchManagerLoginSchema = loginSchema.keys({
+const matchManagerLoginSchema = Joi.object({
+  name: Joi.string().trim().required().messages({ 'any.required': 'Name is required' }),
+  password: Joi.string().required().messages({ 'any.required': 'Password is required' }),
   token: Joi.string().uuid().allow(null, '').optional(),
 });
 
@@ -39,8 +41,8 @@ const registerClubManagerSchema = Joi.object({
 const createMatchManagerSchema = Joi.object({
   name: Joi.string().trim().min(2).max(100).required()
     .messages({ 'any.required': 'Name is required' }),
-  email: Joi.string().trim().lowercase().email().optional(),
-  password: Joi.string().min(6).max(128).optional(),
+  password: Joi.string().min(6).max(128).required()
+    .messages({ 'any.required': 'Password is required' }),
   matchId: objectId.optional(),
   clubId: objectId.required()
     .messages({ 'any.required': 'Club ID is required' }),

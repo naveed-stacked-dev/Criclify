@@ -1,13 +1,26 @@
-// Simple Obfuscator to hide raw DB IDs in URLs
-// This is not cryptographically secure, it's just to prevent users from seeing raw 24-character hex strings
+// ID obfuscation — hides raw 24-char MongoDB ObjectIds in URLs.
+// Not cryptographically secure; purpose is to prevent casual ID exposure.
+//
+// Encoding scheme:
+//   1. Reverse the 24-char hex string
+//   2. base64-encode it, remove padding
+//   3. Replace '/' → '_'  and  '+' → '.'  (both URL-safe, no conflict)
+//   4. Insert 3 dashes as visual segment separators every 8 chars
+//      → final shape: xxxxxxxx-xxxxxxxx-xxxxxxxx-xxxxxxxx
+//
+// Matches frontend/src/utils/crypto.js — IDs encoded in either app decode cleanly.
 
 export const encodeId = (id) => {
   if (!id) return id;
   try {
-    // Reverse the string and base64 encode it
-    const reversed = id.toString().split('').reverse().join('');
-    // base64 encode and make URL safe (remove padding =, replace + with -, replace / with _)
-    return btoa(reversed).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+    const reversed = id.toString().split("").reverse().join("");
+    const b64 = btoa(reversed)
+      .replace(/=/g, "")
+      .replace(/\+/g, ".")   // '.' never used as separator → no ambiguity
+      .replace(/\//g, "_");
+    // Split into up to 4 segments with 3 dashes
+    const parts = [b64.slice(0, 8), b64.slice(8, 16), b64.slice(16, 24), b64.slice(24)].filter(Boolean);
+    return parts.join("-");
   } catch (e) {
     return id;
   }
@@ -15,23 +28,19 @@ export const encodeId = (id) => {
 
 export const decodeId = (encoded) => {
   if (!encoded) return encoded;
-  
-  // If it's already a 24 character hex string (MongoDB ObjectId), it might not be encoded
-  if (/^[0-9a-fA-F]{24}$/.test(encoded)) {
-    return encoded;
-  }
-
+  // Raw ObjectId → pass through unchanged (backward-compat / direct links)
+  if (/^[0-9a-fA-F]{24}$/.test(encoded)) return encoded;
   try {
-    // Restore base64 characters
-    let base64 = encoded.replace(/-/g, '+').replace(/_/g, '/');
-    // Add padding back
-    while (base64.length % 4 !== 0) {
-      base64 += '=';
-    }
-    const decoded = atob(base64);
-    return decoded.split('').reverse().join('');
+    // New format: strip segment dashes, restore '.' → '+', '_' → '/'
+    let b64 = encoded.replace(/-/g, "").replace(/\./g, "+").replace(/_/g, "/");
+    while (b64.length % 4 !== 0) b64 += "=";
+    const result = atob(b64).split("").reverse().join("");
+    if (/^[0-9a-fA-F]{24}$/.test(result)) return result;
+    // Fallback: old format where '-' represented '+' (no segment dashes)
+    let b64Old = encoded.replace(/-/g, "+").replace(/_/g, "/");
+    while (b64Old.length % 4 !== 0) b64Old += "=";
+    return atob(b64Old).split("").reverse().join("");
   } catch (e) {
-    // Fallback if decoding fails
     return encoded;
   }
 };

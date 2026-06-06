@@ -29,11 +29,17 @@ const createPlayer = async (data) => {
 };
 
 /**
- * Get all players in a club with pagination, optional team filter.
+ * Get all players in a club with pagination, optional team and approval filters.
+ * approvedFilter: true = approved only, false = pending only, null = all.
  */
-const getPlayersByClub = async (clubId, { skip, limit }, teamId = null) => {
+const getPlayersByClub = async (clubId, { skip, limit }, teamId = null, approvedFilter = null) => {
   const filter = { clubId };
   if (teamId) filter.teamId = teamId;
+  if (approvedFilter === true) {
+    filter.approved = { $ne: false };
+  } else if (approvedFilter === false) {
+    filter.approved = false;
+  }
 
   const [players, total] = await Promise.all([
     Player.find(filter)

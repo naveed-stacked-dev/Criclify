@@ -7,14 +7,9 @@ const matchManagerSchema = new mongoose.Schema(
       required: [true, 'Name is required'],
       trim: true,
     },
-    email: {
-      type: String,
-      sparse: true,
-      lowercase: true,
-      trim: true,
-    },
     password: {
       type: String,
+      required: [true, 'Password is required'],
       select: false,
     },
     accessType: {

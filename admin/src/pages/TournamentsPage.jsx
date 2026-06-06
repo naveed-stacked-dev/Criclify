@@ -89,7 +89,7 @@ export default function TournamentsPage() {
   const fetchTeams = useCallback(async () => {
     if (!selectedClub || selectedClub === "all") return;
     try {
-      const res = await teamService.getByClub(selectedClub);
+      const res = await teamService.getByClub(selectedClub, { approved: "true" });
       const data = res.data?.data || res.data || [];
       setClubTeams(Array.isArray(data) ? data : []);
     } catch { /* interceptor */ }

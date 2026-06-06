@@ -1,16 +1,27 @@
-import { motion } from "framer-motion";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Radio, ArrowRight } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
+import { encodeId } from "../../utils/crypto";
 
 /**
  * LiveScoreWidget — Broadcast-quality live scoreboard.
  * Stunning card with animated LIVE indicator, team logos, large scores,
  * batsman/bowler stats in styled inner panels, and a run-rate footer.
  */
-export default function LiveScoreWidget({ match, summary: liveSummary }) {
+export default function LiveScoreWidget({ match, summary: liveSummary, animationEvent }) {
   const navigate = useNavigate();
   const { slug } = useParams();
   const summary = liveSummary || match?.summary;
+  const [showAnimation, setShowAnimation] = useState(false);
+
+  // Trigger animation overlay when event arrives
+  useEffect(() => {
+    if (animationEvent) {
+      setShowAnimation(true);
+    }
+  }, [animationEvent]);
+
   if (!match || !summary) return null;
 
   const teamA = match.teamA || {};
@@ -60,33 +71,34 @@ export default function LiveScoreWidget({ match, summary: liveSummary }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      onClick={() => navigate(`/clubs/${slug}/matches/${match._id || match.id}`)}
+      onClick={() => navigate(`/clubs/${slug}/matches/${match.slug || encodeId(match._id || match.id)}`)}
       className="relative overflow-hidden rounded-2xl cursor-pointer group transition-all duration-300 hover:scale-[1.01]"
       style={{
         background: "#ffffff",
         border: "1px solid #e2e8f0",
-        boxShadow: "0 4px 24px -4px rgba(239, 68, 68, 0.12), 0 1px 3px rgba(0,0,0,0.06)",
+        boxShadow: "0 4px 24px -4px color-mix(in srgb, var(--club-primary) 12%, transparent), 0 1px 3px rgba(0,0,0,0.06)",
       }}
     >
       {/* ═══ Animated Red LIVE top bar with glow ═══ */}
-      <div className="relative h-1 w-full overflow-hidden bg-red-100">
+      <div className="relative h-1 w-full overflow-hidden" style={{ background: "color-mix(in srgb, var(--club-primary) 12%, white)" }}>
         <div
-          className="absolute inset-0 bg-red-500"
+          className="absolute inset-0"
           style={{
+            background: "var(--club-primary)",
             animation: "liveBarPulse 2s ease-in-out infinite",
-            boxShadow: "0 0 12px rgba(239, 68, 68, 0.6)",
+            boxShadow: "0 0 12px color-mix(in srgb, var(--club-primary) 60%, transparent)",
           }}
         />
       </div>
 
-      {/* ═══ Header: LIVE badge + Tournament name ═══ */}
+      {/* ═══ Header: LIVE badge + Tournament name + Watch Live ═══ */}
       <div className="flex items-center justify-between px-5 pt-4 pb-2 mb-2">
         <div className="flex items-center gap-2">
           <span
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-widest text-white"
             style={{
               background: "linear-gradient(135deg, #ef4444, #dc2626)",
-              boxShadow: "0 2px 8px rgba(239, 68, 68, 0.4)",
+              boxShadow: "0 2px 8px rgba(239,68,68,0.4)",
               animation: "liveBadgePulse 2s ease-in-out infinite",
             }}
           >
@@ -100,9 +112,28 @@ export default function LiveScoreWidget({ match, summary: liveSummary }) {
             {currentInning === 1 ? "1st Innings" : `${currentInning}nd Innings`}
           </span>
         </div>
-        <span className="text-[10px] font-medium text-slate-400 truncate max-w-[140px]">
-          {match.tournamentId?.name || ""}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-medium text-slate-400 truncate max-w-[100px]">
+            {match.tournamentId?.name || ""}
+          </span>
+          {match.youtubeStreamUrl && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                const videoId = match.youtubeStreamUrl.split("/embed/")[1]?.split("?")[0] || "";
+                window.open(videoId ? `https://www.youtube.com/watch?v=${videoId}` : match.youtubeStreamUrl, "_blank");
+              }}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[8px] font-bold uppercase tracking-widest text-white transition-opacity hover:opacity-80"
+              style={{
+                background: "linear-gradient(135deg, #ff0000, #cc0000)",
+                boxShadow: "0 2px 8px rgba(255,0,0,0.35)",
+              }}
+            >
+              <svg className="w-3 h-3 fill-white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+              Watch-Live
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ═══ Score Section ═══ */}
@@ -192,8 +223,8 @@ export default function LiveScoreWidget({ match, summary: liveSummary }) {
         {/* Bowling Panel */}
         <div className="bg-white rounded-xl p-3 border border-slate-100 shadow-sm">
           <div className="flex justify-between items-center mb-2.5">
-            <h4 className="text-[9px] font-extrabold uppercase tracking-[0.12em] flex items-center gap-1.5 text-red-500">
-              <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+            <h4 className="text-[9px] font-extrabold uppercase tracking-[0.12em] flex items-center gap-1.5" style={{ color: "var(--club-primary)" }}>
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--club-primary)" }} />
               Bowling
             </h4>
             <span className="text-[8px] text-slate-400 font-mono font-bold">W/R (ov)</span>
@@ -229,6 +260,17 @@ export default function LiveScoreWidget({ match, summary: liveSummary }) {
         </span>
       </div>
 
+      {/* ═══ Animation Video Overlay ═══ */}
+      <AnimatePresence>
+        {showAnimation && animationEvent && (
+          <AnimationOverlay
+            playerName={animationEvent.playerName}
+            type={animationEvent.type}
+            onComplete={() => setShowAnimation(false)}
+          />
+        )}
+      </AnimatePresence>
+
       {/* ═══ CSS Keyframes ═══ */}
       <style>{`
         @keyframes liveBarPulse {
@@ -236,8 +278,8 @@ export default function LiveScoreWidget({ match, summary: liveSummary }) {
           50% { opacity: 0.6; }
         }
         @keyframes liveBadgePulse {
-          0%, 100% { box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4); }
-          50% { box-shadow: 0 2px 16px rgba(239, 68, 68, 0.7); }
+          0%, 100% { box-shadow: 0 2px 8px rgba(239,68,68,0.4); }
+          50% { box-shadow: 0 2px 16px rgba(239,68,68,0.7); }
         }
         @keyframes liveDot {
           0%, 100% { opacity: 1; transform: scale(1); }
@@ -292,9 +334,9 @@ function TeamScoreCard({ team, score, wickets, overs, isBatting }) {
             <span
               className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-extrabold uppercase tracking-widest"
               style={{
-                background: "linear-gradient(135deg, #fef2f2, #fee2e2)",
-                color: "#dc2626",
-                border: "1px solid #fecaca",
+                background: "linear-gradient(135deg, color-mix(in srgb, var(--club-primary) 7%, white), color-mix(in srgb, var(--club-primary) 12%, white))",
+                color: "color-mix(in srgb, var(--club-primary) 85%, black)",
+                border: "1px solid color-mix(in srgb, var(--club-primary) 25%, white)",
               }}
             >
               <Radio className="w-2.5 h-2.5 animate-pulse" />
@@ -327,5 +369,86 @@ function PlayerRow({ name, stat, isStriker }) {
         {stat}
       </span>
     </div>
+  );
+}
+
+/* ─── Animation Video Overlay ─── */
+function AnimationOverlay({ playerName, type, onComplete }) {
+  const playCountRef = useRef(0);
+
+  // Callback ref — fires exactly when the DOM video element mounts
+  const videoCallbackRef = useCallback(
+    (node) => {
+      if (!node) return;
+      node.play().catch((e) => console.warn("animation autoplay blocked:", e));
+    },
+    []
+  );
+
+  const handleVideoEnded = useCallback(
+    (e) => {
+      playCountRef.current += 1;
+      if (playCountRef.current < 2) {
+        // Play a second time
+        e.target.currentTime = 0;
+        e.target.play().catch((err) => console.warn("animation replay blocked:", err));
+      } else {
+        onComplete();
+      }
+    },
+    [onComplete]
+  );
+
+  // Capitalize type for label (e.g., "Duckout", "Four", "Six")
+  const typeLabel = type.charAt(0).toUpperCase() + type.slice(1);
+
+  return (
+    <motion.div
+      key="animation-overlay"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.3 }}
+      className="absolute inset-0 z-50 flex items-center justify-center overflow-hidden rounded-2xl"
+      style={{ pointerEvents: "none" }}
+    >
+      {/* Dark backdrop */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background: "linear-gradient(135deg, rgba(0,0,0,0.85), rgba(0,0,0,0.65))",
+          backdropFilter: "blur(6px)",
+        }}
+      />
+
+      <div className="relative z-10 flex flex-col items-center justify-center w-[60%] max-h-[80%]">
+        {/* Scaled video container */}
+        <div className="w-full relative aspect-video shadow-2xl rounded-xl overflow-hidden"
+             style={{ filter: "drop-shadow(0 0 30px rgba(255, 215, 0, 0.4))" }}>
+          <video
+            ref={videoCallbackRef}
+            src={`/${type}.mp4`}
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover"
+            onEnded={handleVideoEnded}
+          />
+        </div>
+
+        {/* Text Label */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="mt-4 px-4 py-2 rounded-full font-bold text-white text-sm whitespace-nowrap overflow-hidden text-ellipsis max-w-full"
+          style={{
+            background: "linear-gradient(135deg, rgba(245, 158, 11, 0.9), rgba(217, 119, 6, 0.9))",
+            boxShadow: "0 4px 15px rgba(245, 158, 11, 0.4)",
+            border: "1px solid rgba(255, 255, 255, 0.2)"
+          }}
+        >
+          {typeLabel} - {playerName}
+        </motion.div>
+      </div>
+    </motion.div>
   );
 }
