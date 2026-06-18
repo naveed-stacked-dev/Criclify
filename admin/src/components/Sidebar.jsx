@@ -142,7 +142,7 @@ export default function Sidebar() {
         ) : (
           <img
             src="/logo.png"
-            alt="CricArena"
+            alt="Criclify"
             className="w-9 h-9 rounded-lg object-contain shrink-0 shadow-sm"
           />
         )}
@@ -153,7 +153,7 @@ export default function Sidebar() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -10 }}
               className="font-bold text-sidebar-foreground text-sm whitespace-nowrap truncate">
-              {isClubOrMatchManager && clubName ? clubName : "CricArena"}
+              {isClubOrMatchManager && clubName ? clubName : "Criclify"}
             </motion.span>
           )}
         </AnimatePresence>

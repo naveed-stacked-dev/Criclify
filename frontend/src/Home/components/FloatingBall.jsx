@@ -1,13 +1,17 @@
-import React, { useRef, Suspense } from 'react';
+import React, { useRef, Suspense, useState, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Preload } from '@react-three/drei';
 import BallModel from '../three/BallModel';
 import BatsmanModel from '../three/BatsmanModel';
 import { getBallPosition, getBatsmanSwing } from '../utils/ballTrajectory';
 
-function GlobalBallScene({ scrollProgressRef }) {
+function GlobalBallScene({ scrollProgressRef, onLoad }) {
   const ballRef = useRef();
   const batsmanRef = useRef();
+
+  useEffect(() => {
+    onLoad?.();
+  }, []);
 
   useFrame(() => {
     const scrollProgress = scrollProgressRef?.current || 0;
@@ -93,8 +97,27 @@ function GlobalBallScene({ scrollProgressRef }) {
 }
 
 export default function FloatingBall({ scrollProgressRef }) {
+  const [loaded, setLoaded] = useState(false);
+
   return (
     <div className="canvas-container">
+      {/* Placeholder shown while the GLB model loads */}
+      <img
+        src="/batsman-load.png"
+        alt=""
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          width: '42%',
+          height: '95%',
+          objectFit: 'contain',
+          objectPosition: 'bottom left',
+          pointerEvents: 'none',
+          opacity: loaded ? 0 : 1,
+          transition: 'opacity 0.4s ease',
+        }}
+      />
       <Canvas
         camera={{ position: [0, 1, 6], fov: 50 }}
         gl={{ antialias: true, alpha: true }}
@@ -102,7 +125,7 @@ export default function FloatingBall({ scrollProgressRef }) {
         style={{ background: 'transparent' }}
       >
         <Suspense fallback={null}>
-          <GlobalBallScene scrollProgressRef={scrollProgressRef} />
+          <GlobalBallScene scrollProgressRef={scrollProgressRef} onLoad={() => setLoaded(true)} />
           <Preload all />
         </Suspense>
       </Canvas>

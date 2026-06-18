@@ -26,7 +26,7 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       await register({ name, email, phone, password });
-      toast.success("Account created! Welcome to CricArena.");
+      toast.success("Account created! Welcome to Criclify.");
       navigate("/profile");
     } catch (err) {
       const data = err?.response?.data;
@@ -69,7 +69,7 @@ export default function RegisterPage() {
           <h1 className="text-2xl font-bold mt-3 bg-clip-text text-transparent bg-gradient-to-r from-[#bc13fe] to-[#00f3ff]">
             Create Account
           </h1>
-          <p className="text-gray-500 mt-1 text-sm">Join CricArena and follow your favorite teams</p>
+          <p className="text-gray-500 mt-1 text-sm">Join Criclify and follow your favorite teams</p>
         </div>
 
         {/* Card */}

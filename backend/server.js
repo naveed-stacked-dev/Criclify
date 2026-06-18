@@ -1,10 +1,10 @@
 const http = require('http');
 const { Server } = require('socket.io');
-const app = require('./app');
-const connectDB = require('./config/db');
-const config = require('./config/env');
-const { initRedis } = require('./config/redis');
-const setupMatchSocket = require('./sockets/matchHandler');
+const app = require('./src/app');
+const connectDB = require('./src/config/db');
+const config = require('./src/config/env');
+const { initRedis } = require('./src/config/redis');
+const setupMatchSocket = require('./src/sockets/matchHandler');
 
 const startServer = async () => {
   // Connect to MongoDB

@@ -13,7 +13,8 @@ const app = express();
 app.use(helmet());
 app.use(
   cors({
-    origin: "*",
+    // origin: ["http://localhost:5173", "http://localhost:5174"],
+    origin: ["https://criclify.com", "https://admin.criclify.com"],
     credentials: true,
   })
 );
@@ -49,7 +50,7 @@ app.use('/api', routes);
 app.get('/', (req, res) => {
   res.json({
     success: true,
-    message: '🏏 CricArena Management Platform API',
+    message: '🏏 Criclify Management Platform API',
     version: '1.0.0',
     docs: '/api/health',
   });

@@ -11,7 +11,7 @@ export default function Footer() {
             <img src={logo} alt="Logo" className="w-16 h-16" />
           <div className="text-2xl font-bold tracking-tighter">
             <span className="text-white">Cric</span>
-            <span className="text-[#00f3ff]">Arena</span>
+            <span className="text-[#00f3ff]">lify</span>
           </div>
           </Link>
           <p className="text-gray-500 text-sm">Elevate your cricket management.</p>
@@ -28,7 +28,7 @@ export default function Footer() {
         </div>
       </div>
       <div className="text-center text-gray-600 text-xs mt-8">
-        © {new Date().getFullYear()} CricArena. All rights reserved.
+        © {new Date().getFullYear()} Criclify. All rights reserved.
       </div>
     </footer>
   );

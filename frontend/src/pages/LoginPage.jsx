@@ -69,7 +69,7 @@ export default function LoginPage() {
           <h1 className="text-2xl font-bold mt-3 bg-clip-text text-transparent bg-gradient-to-r from-[#00f3ff] to-[#bc13fe]">
             Welcome Back
           </h1>
-          <p className="text-gray-500 mt-1 text-sm">Sign in to your CricArena account</p>
+          <p className="text-gray-500 mt-1 text-sm">Sign in to your Criclify account</p>
         </div>
 
         {/* Card */}

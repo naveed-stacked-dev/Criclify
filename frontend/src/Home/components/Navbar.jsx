@@ -39,7 +39,7 @@ export default function Navbar() {
           <img src={logo} alt="Logo" className="w-12 h-12" />
           <div className="text-2xl font-bold tracking-tighter">
             <span className="text-white">Cric</span>
-            <span className="text-[#00f3ff]">Arena</span>
+            <span className="text-[#00f3ff]">lify</span>
           </div>
         </Link>
         

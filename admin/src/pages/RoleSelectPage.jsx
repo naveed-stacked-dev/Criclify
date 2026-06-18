@@ -75,7 +75,7 @@ export default function RoleSelectPage() {
           >
             <span className="text-3xl">🏏</span>
           </motion.div>
-          <h1 className="text-3xl font-bold text-foreground tracking-tight">CricArena</h1>
+          <h1 className="text-3xl font-bold text-foreground tracking-tight">Criclify</h1>
           <p className="text-muted-foreground mt-2">Choose your role to sign in</p>
         </motion.div>
 

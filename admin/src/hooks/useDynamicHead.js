@@ -16,20 +16,20 @@ export function useDynamicHead() {
   const { isSuperAdmin, isClubManager, isMatchManager, clubName, clubLogo, isAuthenticated } = useAppContext();
 
   useEffect(() => {
-    let title = "CricArena Management";
+    let title = "Criclify Management";
     let description = "Professional cricket league management, scheduling, and live scoring platform.";
 
     if (isAuthenticated) {
       if (isSuperAdmin) {
-        title = "CricArena | SuperAdmin Portal";
-        description = "Global administration and league management for CricArena.";
+        title = "Criclify | SuperAdmin Portal";
+        description = "Global administration and league management for Criclify.";
         setFavicon("/logo.png");
       } else if (isClubManager) {
         title = `${clubName || "Club"} | Club Management`;
         description = `Manage your club (${clubName || "assigned club"}), tournaments, teams, and players.`;
         setFavicon(clubLogo || "/logo.png");
       } else if (isMatchManager) {
-        title = "Match Scorer | CricArena";
+        title = "Match Scorer | Criclify";
         description = "Live match scoring and scheduling management for assigned fixtures.";
         setFavicon(clubLogo || "/logo.png");
       }

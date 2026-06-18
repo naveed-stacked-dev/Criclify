@@ -351,7 +351,7 @@ export default function LiveScoringPage() {
     const currentWickets = chaseInnings.wickets || 0;
     const currentBalls = chaseInnings.balls || 0;
     const totalBalls = isSuperOverChase ? (match.oversPerInning || 1) * 6 : (match.oversPerInning || 20) * 6;
-    const maxWickets = isSuperOverChase ? 2 : 10; // usually 2 wickets for super over but we can just use 10 if standard rules are 10, wait, let's keep 10 to be safe unless cricarena uses 2. standard t20 super over has 2 wickets. Actually, let's just use 10 for safety since we haven't added specific super over wicket limits elsewhere.
+    const maxWickets = isSuperOverChase ? 2 : 10; // usually 2 wickets for super over but we can just use 10 if standard rules are 10, wait, let's keep 10 to be safe unless criclify uses 2. standard t20 super over has 2 wickets. Actually, let's just use 10 for safety since we haven't added specific super over wicket limits elsewhere.
     const effectiveMaxWickets = isSuperOverChase ? 2 : 10;
 
     // Resolve team names
