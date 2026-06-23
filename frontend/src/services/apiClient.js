@@ -37,7 +37,7 @@ apiClient.interceptors.response.use(
     const errorCode = data?.errorCode;
 
     // ── Handle 401: Clear session ──
-    if (status === 401) {
+    if (status === 401 && errorCode !== "INVALID_CREDENTIALS" && !error.config?.url?.includes("login")) {
       localStorage.removeItem("user_token");
       localStorage.removeItem("user_data");
       if (window.location.pathname.startsWith("/profile")) {
@@ -92,7 +92,7 @@ apiClient.interceptors.response.use(
         toast.error("A team with this name already exists in this club.");
         break;
       case "INVALID_CREDENTIALS":
-        toast.error("Incorrect email or password.", {
+        toast.error("Incorrect credentials", {
           description: "Please check your credentials and try again.",
         });
         break;

@@ -13,6 +13,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
 
@@ -23,11 +24,22 @@ export default function RegisterPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFieldErrors({});
+
+    if (password !== confirmPassword) {
+      setFieldErrors({ confirmPassword: "Passwords do not match." });
+      return;
+    }
+
+    if (!/^(?=.*[a-zA-Z])(?=.*[0-9])/.test(password)) {
+      setFieldErrors({ password: "Password must be alphanumeric (contain at least one letter and one number)." });
+      return;
+    }
+
     setLoading(true);
     try {
       await register({ name, email, phone, password });
       toast.success("Account created! Welcome to Criclify.");
-      navigate("/profile");
+      navigate("/");
     } catch (err) {
       const data = err?.response?.data;
       if (data?.errors?.length > 0) {
@@ -123,9 +135,51 @@ export default function RegisterPage() {
                 required
                 autoComplete="new-password"
               />
+              <div className="mt-2 flex gap-1 w-full">
+                {[1, 2, 3].map((level) => {
+                  let score = 0;
+                  if (password.length >= 6) score += 1;
+                  if (/[a-zA-Z]/.test(password) && /[0-9]/.test(password)) score += 1;
+                  if (password.length >= 8 && /[^a-zA-Z0-9]/.test(password)) score += 1;
+                  
+                  let bg = "bg-white/10";
+                  if (score >= level) {
+                    bg = score === 1 ? "bg-red-500" : score === 2 ? "bg-yellow-500" : "bg-green-500";
+                  }
+                  return <div key={level} className={`h-1.5 flex-1 rounded-full ${bg} transition-colors duration-300`} />
+                })}
+              </div>
+              <p className="text-[10px] text-gray-500 mt-1 ml-1">
+                {password ? (
+                  (() => {
+                    let score = 0;
+                    if (password.length >= 6) score += 1;
+                    if (/[a-zA-Z]/.test(password) && /[0-9]/.test(password)) score += 1;
+                    if (password.length >= 8 && /[^a-zA-Z0-9]/.test(password)) score += 1;
+                    return score === 1 ? "Weak" : score === 2 ? "Medium" : score === 3 ? "Strong" : "";
+                  })()
+                ) : "Use at least 6 characters, including a letter and a number"}
+              </p>
               {fieldErrors.password && (
                 <p className="text-xs text-red-400 flex items-center gap-1 mt-1.5">
                   <AlertCircle className="w-3 h-3 shrink-0" /> {fieldErrors.password}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1.5">Confirm Password</label>
+              <PasswordInput
+                value={confirmPassword}
+                onChange={(e) => { setConfirmPassword(e.target.value); clearFieldError("confirmPassword"); }}
+                className={inputClass("confirmPassword")}
+                placeholder="Confirm your password"
+                required
+                autoComplete="new-password"
+              />
+              {fieldErrors.confirmPassword && (
+                <p className="text-xs text-red-400 flex items-center gap-1 mt-1.5">
+                  <AlertCircle className="w-3 h-3 shrink-0" /> {fieldErrors.confirmPassword}
                 </p>
               )}
             </div>

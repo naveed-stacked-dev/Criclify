@@ -33,7 +33,7 @@ export function PublicRoute({ children }) {
   }
 
   if (isAuthenticated) {
-    return <Navigate to="/profile" replace />;
+    return <Navigate to="/" replace />;
   }
 
   return children ? children : <Outlet />;

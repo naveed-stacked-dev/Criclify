@@ -55,8 +55,12 @@ const registerUserSchema = Joi.object({
     .messages({ 'any.required': 'Name is required' }),
   email: Joi.string().trim().lowercase().email().required()
     .messages({ 'any.required': 'Email is required', 'string.email': 'Please enter a valid email address' }),
-  password: Joi.string().min(6).max(128).required()
-    .messages({ 'any.required': 'Password is required', 'string.min': 'Password must be at least 6 characters' }),
+  password: Joi.string().min(6).max(128).pattern(/^(?=.*[a-zA-Z])(?=.*[0-9])/).required()
+    .messages({ 
+      'any.required': 'Password is required', 
+      'string.min': 'Password must be at least 6 characters',
+      'string.pattern.base': 'Password must be alphanumeric (contain at least one letter and one number)'
+    }),
 });
 
 // ─── Token ───────────────────────────────────────────────────────

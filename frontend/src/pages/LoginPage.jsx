@@ -9,7 +9,7 @@ import PasswordInput from "@/components/PasswordInput";
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const from = location.state?.from || "/profile";
+  const from = location.state?.from || "/";
   const { login } = useAppContext();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

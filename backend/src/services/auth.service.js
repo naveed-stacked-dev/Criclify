@@ -66,12 +66,12 @@ const login = async (role, email, password) => {
 
   const user = await Model.findOne({ email }).select('+password +refreshToken');
   if (!user) {
-    throw ApiError.unauthorized('Invalid email or password');
+    throw new ApiError(404, 'Please sign up to continue', 'USER_NOT_FOUND');
   }
 
   const isMatch = await user.comparePassword(password);
   if (!isMatch) {
-    throw ApiError.unauthorized('Invalid email or password');
+    throw ApiError.invalidCredentials();
   }
 
   const tokens = generateTokens(user._id, role);
