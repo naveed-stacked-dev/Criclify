@@ -286,9 +286,28 @@ const generateKnockoutFixtures = async (tournamentId) => {
     }
   }
 
-  // Seed teams into Round 1
-  // Standard seeding: position teams so that seed 1 vs last, etc.
-  const seededTeams = [...teams];
+  // Seed teams into Round 1 using ranked order:
+  // - If a points table exists (e.g. after a league phase), rank by points DESC → NRR DESC
+  // - Otherwise shuffle randomly — always fairer than arbitrary insertion order
+  let seededTeams;
+  const hasPointsTable = tournament.pointsTable && tournament.pointsTable.length > 0;
+
+  if (hasPointsTable) {
+    const ptMap = {};
+    for (const entry of tournament.pointsTable) {
+      ptMap[entry.teamId.toString()] = entry;
+    }
+    seededTeams = [...teams].sort((a, b) => {
+      const ptA = ptMap[a._id.toString()];
+      const ptB = ptMap[b._id.toString()];
+      const pointsDiff = (ptB?.points ?? 0) - (ptA?.points ?? 0);
+      if (pointsDiff !== 0) return pointsDiff;
+      return (ptB?.nrr ?? 0) - (ptA?.nrr ?? 0);
+    });
+  } else {
+    seededTeams = [...teams].sort(() => Math.random() - 0.5);
+  }
+
   const round1Size = bracketSize / 2;
 
   for (let order = 0; order < round1Size; order++) {

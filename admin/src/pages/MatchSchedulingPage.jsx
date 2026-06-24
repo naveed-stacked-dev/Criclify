@@ -451,7 +451,7 @@ export default function MatchSchedulingPage() {
                                     <DropdownMenuItem onClick={() => openEdit(m)}><Pencil className="w-4 h-4 mr-2" /> Edit</DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => openDelete(m)} className="text-red-400"><Trash2 className="w-4 h-4 mr-2" /> Delete</DropdownMenuItem>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem onClick={() => copyTvLink(m)}><Monitor className="w-4 h-4 mr-2" /> Copy TV Display Link</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => copyTvLink(m)}><Monitor className="w-4 h-4 mr-2" /> Display Link</DropdownMenuItem>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
                               </TableCell>

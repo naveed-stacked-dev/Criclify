@@ -13,9 +13,10 @@ export default function LeagueTimeline({ matches }) {
 
     const groups = {};
     const sorted = [...matches].sort((a, b) => {
-      const timeA = a.startTime ? new Date(a.startTime).getTime() : 0;
-      const timeB = b.startTime ? new Date(b.startTime).getTime() : 0;
-      return timeA - timeB;
+      if (!a.startTime && !b.startTime) return 0;
+      if (!a.startTime) return 1;
+      if (!b.startTime) return -1;
+      return new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
     });
 
     sorted.forEach(match => {

@@ -291,7 +291,7 @@ export default function MatchesPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
-                          <span className="text-sm">{m.startTime ? new Date(m.startTime).toLocaleDateString() : "TBD"}</span>
+                          <span className="text-sm">{m.startTime ? new Date(m.startTime).toLocaleDateString('en-GB') : "TBD"}</span>
                           <span className="text-xs text-muted-foreground">{m.venue || "TBD"}</span>
                           {m.rescheduleAction && (
                              <span 
@@ -314,7 +314,7 @@ export default function MatchesPage() {
                             <DropdownMenuItem onClick={() => generateLink(m)}><LinkIcon className="w-4 h-4 mr-2" /> Copy Scorer Link</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => openStream(m)}><PlayCircle className="w-4 h-4 mr-2" /> Update Stream URL</DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => copyTvLink(m)}><Monitor className="w-4 h-4 mr-2" /> Copy TV Display Link</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => copyTvLink(m)}><Monitor className="w-4 h-4 mr-2" /> Display Link</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>

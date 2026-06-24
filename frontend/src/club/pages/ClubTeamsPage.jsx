@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useOutletContext, Link, useParams } from "react-router-dom";
+import { useOutletContext, Link, useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLenis } from "lenis/react";
 import { Users, ChevronRight, Plus, X, UserPlus, CheckCircle, Loader, AlertCircle, Info, Pencil, Trash2 } from "lucide-react";
@@ -74,6 +74,8 @@ export default function ClubTeamsPage() {
   const { club } = useOutletContext();
   const { slug } = useParams();
   const clubId = club?._id || club?.id;
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -112,6 +114,24 @@ export default function ClubTeamsPage() {
       document.body.style.overflow = prevBody;
     };
   }, [showModal, lenis]);
+
+  // Auto-open modal when navigated here with ?register=true
+  useEffect(() => {
+    if (searchParams.get("register") === "true") {
+      setTeamForm({ name: "" });
+      setTeamLogo(null);
+      setTeamError("");
+      setPlayers([]);
+      setShowPlayerForm(false);
+      setEditingKey(null);
+      setPlayerForm(EMPTY_PLAYER);
+      setPlayerError("");
+      setSubmitError("");
+      setSuccess(false);
+      setShowModal(true);
+      navigate(`/clubs/${slug}/teams`, { replace: true });
+    }
+  }, [searchParams]);
 
   // Scroll the inline player form into view when it opens (add or edit)
   useEffect(() => {

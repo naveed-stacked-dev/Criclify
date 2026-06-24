@@ -62,6 +62,17 @@ export default function SquadSelectionDialog({ match, open, onClose, onUpdated }
   };
 
   const handleSave = async () => {
+    if (match.teamA?._id) {
+      if (squadA.playingXI.length !== 11 || squadA.substitutes.length !== 4) {
+        return toast.error(`Please select exactly 11 playing players and 4 substitutes for ${match.teamA.name}`);
+      }
+    }
+    if (match.teamB?._id) {
+      if (squadB.playingXI.length !== 11 || squadB.substitutes.length !== 4) {
+        return toast.error(`Please select exactly 11 playing players and 4 substitutes for ${match.teamB.name}`);
+      }
+    }
+
     setSubmitting(true);
     try {
       await matchService.update(match._id || match.id, {

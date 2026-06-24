@@ -76,7 +76,8 @@ const getHeadToHeadStats = async (req, res, next) => {
 
 const getClubDashboardStats = async (req, res, next) => {
   try {
-    const data = await analyticsService.getClubDashboardStats(req.params.clubId);
+    const { tournamentId } = req.query;
+    const data = await analyticsService.getClubDashboardStats(req.params.clubId, tournamentId || null);
     res.json(ApiResponse.ok(data));
   } catch (error) {
     next(error);

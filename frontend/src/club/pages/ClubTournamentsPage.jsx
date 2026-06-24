@@ -19,7 +19,8 @@ export default function ClubTournamentsPage() {
     const fetch = async () => {
       try {
         const res = await clubService.getTournaments(clubId, { limit: 50 });
-        setTournaments(res.data?.data || []);
+        const all = res.data?.data || [];
+        setTournaments(all.filter((t) => t.status !== "draft"));
       } catch { /* handled */ }
       finally { setLoading(false); }
     };

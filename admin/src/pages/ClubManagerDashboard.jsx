@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { encodeId } from "@/utils/crypto";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,7 +13,7 @@ import playerService from "@/services/playerService";
 import analyticsService from "@/services/analyticsService";
 import {
   Trophy, Users, Calendar, Radio, TrendingUp, UserCircle, Swords, Activity,
-  LayoutDashboard, Zap, Target, Circle
+  LayoutDashboard, Zap, Target, Circle, Filter
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -22,10 +24,14 @@ const item = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } };
 
 export default function ClubManagerDashboard() {
   const { user, clubId, clubName, clubLogo, themeColor } = useAppContext();
+  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [aggregateStats, setAggregateStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [recentMatches, setRecentMatches] = useState([]);
+  const [tournaments, setTournaments] = useState([]);
+  const [selectedTournament, setSelectedTournament] = useState("");
+  const [statsLoading, setStatsLoading] = useState(false);
 
   useEffect(() => {
     if (!clubId) {
@@ -44,12 +50,15 @@ export default function ClubManagerDashboard() {
         ]);
 
         const teams = teamRes.status === "fulfilled" ? teamRes.value.data : null;
-        const tournaments = tournamentRes.status === "fulfilled" ? tournamentRes.value.data : null;
+        const tournamentData = tournamentRes.status === "fulfilled" ? tournamentRes.value.data : null;
         const matches = matchRes.status === "fulfilled" ? matchRes.value.data : null;
         const players = playerRes.status === "fulfilled" ? playerRes.value.data : null;
 
         const analytics = analyticsRes.status === "fulfilled" ? analyticsRes.value.data : null;
         setAggregateStats(analytics?.data || null);
+
+        const tournamentList = tournamentData?.data || [];
+        setTournaments(tournamentList);
 
         const allMatches = matches?.data || [];
         const completedOnly = allMatches.filter(m => m.status === 'completed');
@@ -57,7 +66,7 @@ export default function ClubManagerDashboard() {
 
         setStats({
           totalTeams: teams?.total || (teams?.data || []).length || 0,
-          totalTournaments: tournaments?.total || (tournaments?.data || []).length || 0,
+          totalTournaments: tournamentData?.total || tournamentList.length || 0,
           totalMatches: matches?.total || allMatches.length || 0,
           totalPlayers: players?.total || (players?.data || []).length || 0,
           liveMatches: allMatches.filter((m) => m.status === "live").length,
@@ -71,6 +80,24 @@ export default function ClubManagerDashboard() {
     };
     fetchData();
   }, [clubId]);
+
+  // Re-fetch aggregate stats when tournament filter changes
+  useEffect(() => {
+    if (!clubId) return;
+    const fetchAggregateStats = async () => {
+      setStatsLoading(true);
+      try {
+        const params = selectedTournament ? { tournamentId: selectedTournament } : {};
+        const res = await analyticsService.getClubDashboardStats(clubId, params);
+        setAggregateStats(res.data?.data || null);
+      } catch {
+        // handled by interceptor
+      } finally {
+        setStatsLoading(false);
+      }
+    };
+    fetchAggregateStats();
+  }, [clubId, selectedTournament]);
 
   const statCards = [
     { label: "Teams", value: stats?.totalTeams || 0, icon: Users, gradient: "from-emerald-500/15 to-teal-500/15", iconColor: "text-emerald-500" },
@@ -86,7 +113,7 @@ export default function ClubManagerDashboard() {
   ];
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
+    <motion.div variants={container} initial="hidden" animate="show" className="space-y-6 pb-10">
       {/* Club Banner Header */}
       <motion.div variants={item}>
         <Card className="overflow-hidden border-0 shadow-lg">
@@ -165,6 +192,32 @@ export default function ClubManagerDashboard() {
         })}
       </div>
 
+      {/* Aggregate Stats — Tournament Filter */}
+      <motion.div variants={item} className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+          <Filter className="w-4 h-4" />
+          <span>Filter Stats by Tournament:</span>
+        </div>
+        <select
+          value={selectedTournament}
+          onChange={(e) => setSelectedTournament(e.target.value)}
+          className="text-sm border border-border rounded-lg px-3 py-1.5 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
+        >
+          <option value="">All Tournaments</option>
+          {tournaments.map((t) => (
+            <option key={t._id} value={t._id}>{t.name}</option>
+          ))}
+        </select>
+        {selectedTournament && (
+          <button
+            onClick={() => setSelectedTournament("")}
+            className="text-xs text-muted-foreground hover:text-foreground underline transition-colors"
+          >
+            Clear
+          </button>
+        )}
+      </motion.div>
+
       {/* Aggregate Stats Row */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {[
@@ -184,7 +237,7 @@ export default function ClubManagerDashboard() {
                     <p className="text-xs text-muted-foreground font-medium leading-tight">{s.label}</p>
                     <Icon className="w-3.5 h-3.5 shrink-0" style={{ color: s.color }} />
                   </div>
-                  {loading ? (
+                  {loading || statsLoading ? (
                     <Skeleton className="h-7 w-12 mt-1" />
                   ) : (
                     <p className="text-2xl font-bold" style={{ color: s.color }}>
@@ -249,7 +302,7 @@ export default function ClubManagerDashboard() {
               ) : (
                 <div className="space-y-2">
                   {recentMatches.map((match) => (
-                    <div key={match._id || match.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors border-l-4" style={{ borderLeftColor: match.status === 'live' ? '#ef4444' : themeColor }}>
+                    <div key={match._id || match.id} onClick={() => navigate(`/match/${encodeId(match._id || match.id)}/match-summary`)} className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors border-l-4 cursor-pointer" style={{ borderLeftColor: match.status === 'live' ? '#ef4444' : themeColor }}>
                       <div className="text-sm font-medium text-foreground">
                         {match.teamA?.name || "Team A"} <span className="text-muted-foreground font-normal mx-1">vs</span> {match.teamB?.name || "Team B"}
                       </div>

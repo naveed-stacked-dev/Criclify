@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppContext } from "@/hooks/useAppContext";
 import clubService from "@/services/clubService";
 import teamService from "@/services/teamService";
+import playerService from "@/services/playerService";
 import { appendImageField } from "@/utils/imageUtils";
 import { toast } from "sonner";
 import ImageUpload from "@/components/ImageUpload";
@@ -32,6 +33,7 @@ const ROLE_LABELS = {
 
 export default function TeamsPage() {
   const { user, clubId: contextClubId, themeColor } = useAppContext();
+  const navigate = useNavigate();
   const [clubs, setClubs] = useState([]);
   const [selectedClub, setSelectedClub] = useState(null);
   const [teams, setTeams] = useState([]);
@@ -53,6 +55,10 @@ export default function TeamsPage() {
   const [roster, setRoster] = useState([]);
   const [rosterLoading, setRosterLoading] = useState(false);
   const [addPlayerForm, setAddPlayerForm] = useState({ playerId: "" });
+  const [clubPlayers, setClubPlayers] = useState([]);
+  const [playerSearch, setPlayerSearch] = useState("");
+  const [showPlayerDropdown, setShowPlayerDropdown] = useState(false);
+  const [selectedPlayerForAdd, setSelectedPlayerForAdd] = useState(null);
 
   // Pending tab modal
   const [showPendingDetail, setShowPendingDetail] = useState(false);
@@ -111,9 +117,18 @@ export default function TeamsPage() {
     setSelected(team);
     setShowRoster(true);
     setRosterLoading(true);
+    setPlayerSearch("");
+    setSelectedPlayerForAdd(null);
+    setAddPlayerForm({ playerId: "" });
     try {
-      const res = await teamService.getPlayers(team._id || team.id);
-      setRoster(res.data?.data || res.data?.players || res.data || []);
+      const [rosterRes, clubPlayersRes] = await Promise.allSettled([
+        teamService.getPlayers(team._id || team.id),
+        playerService.getByClub(selectedClub),
+      ]);
+      const rosterData = rosterRes.status === "fulfilled" ? rosterRes.value.data?.data || rosterRes.value.data?.players || rosterRes.value.data || [] : [];
+      const clubData = clubPlayersRes.status === "fulfilled" ? clubPlayersRes.value.data?.data || clubPlayersRes.value.data?.players || clubPlayersRes.value.data || [] : [];
+      setRoster(rosterData);
+      setClubPlayers(clubData);
     } catch { /* interceptor */ } finally { setRosterLoading(false); }
   };
 
@@ -168,12 +183,14 @@ export default function TeamsPage() {
   };
 
   const handleAddPlayer = async () => {
-    if (!addPlayerForm.playerId.trim()) return toast.error("Player ID required");
+    if (!addPlayerForm.playerId.trim()) return toast.error("Select a player to add");
     setSubmitting(true);
     try {
       await teamService.addPlayer(selected._id || selected.id, { playerId: addPlayerForm.playerId });
       toast.success("Player added to roster");
       setAddPlayerForm({ playerId: "" });
+      setPlayerSearch("");
+      setSelectedPlayerForAdd(null);
       fetchRoster(selected);
     } catch { /* interceptor */ } finally { setSubmitting(false); }
   };
@@ -288,7 +305,11 @@ export default function TeamsPage() {
                     </TableHeader>
                     <TableBody>
                       {filtered.map((team) => (
-                        <TableRow key={team._id || team.id}>
+                        <TableRow
+                          key={team._id || team.id}
+                          className="cursor-pointer"
+                          onClick={() => navigate(`/teams/${team._id || team.id}`)}
+                        >
                           <TableCell>
                             <div className="flex items-center gap-3">
                               <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: team.color ? `${team.color}20` : `${themeColor}20` }}>
@@ -303,7 +324,10 @@ export default function TeamsPage() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <button onClick={() => fetchRoster(team)} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); fetchRoster(team); }}
+                              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                            >
                               <Users className="w-3.5 h-3.5" />
                               {team.playerCount || 0} players
                               <ChevronRight className="w-3 h-3" />
@@ -312,7 +336,7 @@ export default function TeamsPage() {
                           <TableCell className="text-xs text-muted-foreground">
                             {team.createdAt ? new Date(team.createdAt).toLocaleDateString() : "—"}
                           </TableCell>
-                          <TableCell>
+                          <TableCell onClick={(e) => e.stopPropagation()}>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="w-4 h-4" /></Button>
@@ -494,10 +518,65 @@ export default function TeamsPage() {
               </div>
             )}
             <div className="pt-2 border-t space-y-2">
-              <Label>Add player by ID</Label>
+              <Label>Add Player</Label>
               <div className="flex gap-2">
-                <Input placeholder="Player ID" value={addPlayerForm.playerId} onChange={(e) => setAddPlayerForm({ playerId: e.target.value })} />
-                <Button onClick={handleAddPlayer} disabled={submitting} size="sm" style={{ backgroundColor: themeColor, color: "#fff" }}>
+                <div className="relative flex-1">
+                  <Input
+                    placeholder="Search by name..."
+                    value={playerSearch}
+                    onChange={(e) => {
+                      setPlayerSearch(e.target.value);
+                      setSelectedPlayerForAdd(null);
+                      setAddPlayerForm({ playerId: "" });
+                      setShowPlayerDropdown(true);
+                    }}
+                    onFocus={() => setShowPlayerDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowPlayerDropdown(false), 150)}
+                  />
+                  {showPlayerDropdown && playerSearch.trim() && (() => {
+                    const rosterIds = new Set(roster.map((p) => (p._id || p.id).toString()));
+                    const filtered = clubPlayers.filter(
+                      (p) => !rosterIds.has((p._id || p.id).toString()) &&
+                        (p.name || "").toLowerCase().includes(playerSearch.toLowerCase())
+                    );
+                    return filtered.length > 0 ? (
+                      <div className="absolute z-50 bottom-full mb-1 left-0 right-0 bg-background border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        {filtered.map((p) => (
+                          <button
+                            key={p._id || p.id}
+                            type="button"
+                            className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-accent transition-colors"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setSelectedPlayerForAdd(p);
+                              setPlayerSearch(p.name);
+                              setAddPlayerForm({ playerId: p._id || p.id });
+                              setShowPlayerDropdown(false);
+                            }}
+                          >
+                            <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold overflow-hidden shrink-0" style={{ backgroundColor: `${themeColor}20`, color: themeColor }}>
+                              {p.avatar ? <img src={p.avatar} alt="" className="w-7 h-7 rounded-full object-cover" /> : (p.name || "?")[0]}
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">{p.name}</p>
+                              <p className="text-xs text-muted-foreground capitalize">{ROLE_LABELS[p.role] || p.role}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="absolute z-50 bottom-full mb-1 left-0 right-0 bg-background border border-border rounded-lg shadow-lg px-3 py-3 text-sm text-muted-foreground text-center">
+                        No available players found
+                      </div>
+                    );
+                  })()}
+                </div>
+                <Button
+                  onClick={handleAddPlayer}
+                  disabled={submitting || !selectedPlayerForAdd}
+                  size="sm"
+                  style={{ backgroundColor: themeColor, color: "#fff" }}
+                >
                   {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Add"}
                 </Button>
               </div>

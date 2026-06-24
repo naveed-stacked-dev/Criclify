@@ -155,8 +155,10 @@ apiClient.interceptors.response.use(
       case "MATCH_NOT_FOUND":
       case "TOURNAMENT_NOT_FOUND":
       case "USER_NOT_FOUND":
-      case "SUMMARY_NOT_FOUND":
         toast.error(message);
+        break;
+      case "SUMMARY_NOT_FOUND":
+        toast.error("Match Not Started");
         break;
       case "INVALID_YOUTUBE_URL":
         toast.error("Please provide a valid YouTube URL.");

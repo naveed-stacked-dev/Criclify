@@ -215,7 +215,7 @@ export default function MatchSummaryPage() {
             className="gap-2 text-xs font-semibold"
             onClick={handleCopyTvLink}
           >
-            <Monitor className="w-4 h-4" /> Copy TV Display Link
+            <Monitor className="w-4 h-4" /> Display Link
           </Button>
 
           {match.youtubeStreamUrl && (

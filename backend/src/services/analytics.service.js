@@ -652,9 +652,52 @@ const getMVP = async (clubId) => {
  *  CLUB DASHBOARD AGGREGATE STATS
  * ──────────────────────────────────────────
  */
-const getClubDashboardStats = async (clubId) => {
+const getClubDashboardStats = async (clubId, tournamentId = null) => {
   const mongoose = require('mongoose');
   const oid = new mongoose.Types.ObjectId(clubId);
+
+  if (tournamentId) {
+    const tournamentOid = new mongoose.Types.ObjectId(tournamentId);
+    const matchIds = await Match.find({ tournamentId: tournamentOid, status: 'completed' }).distinct('_id');
+
+    const empty = { totalRuns: 0, totalWickets: 0, totalBallsBowled: 0, totalFours: 0, totalSixes: 0, totalCatches: 0, playerCount: 0 };
+    if (matchIds.length === 0) return empty;
+
+    const [battingAgg, wicketsAgg, catchesAgg, playerCountAgg] = await Promise.all([
+      MatchEvent.aggregate([
+        { $match: { matchId: { $in: matchIds } } },
+        {
+          $group: {
+            _id: null,
+            totalRuns: { $sum: '$runs' },
+            totalBallsBowled: { $sum: { $cond: ['$isLegalDelivery', 1, 0] } },
+            totalFours: { $sum: { $cond: [{ $and: [{ $eq: ['$isBoundary', true] }, { $eq: ['$isSix', false] }] }, 1, 0] } },
+            totalSixes: { $sum: { $cond: [{ $eq: ['$isSix', true] }, 1, 0] } },
+          },
+        },
+      ]),
+      MatchEvent.aggregate([
+        { $match: { matchId: { $in: matchIds }, isWicket: true, 'wicket.type': { $ne: 'runout' } } },
+        { $group: { _id: null, totalWickets: { $sum: 1 } } },
+      ]),
+      MatchEvent.aggregate([
+        { $match: { matchId: { $in: matchIds }, isWicket: true, 'wicket.type': 'caught' } },
+        { $group: { _id: null, totalCatches: { $sum: 1 } } },
+      ]),
+      MatchEvent.distinct('batsmanId', { matchId: { $in: matchIds } }),
+    ]);
+
+    const b = battingAgg[0] || {};
+    return {
+      totalRuns: b.totalRuns || 0,
+      totalWickets: wicketsAgg[0]?.totalWickets || 0,
+      totalBallsBowled: b.totalBallsBowled || 0,
+      totalFours: b.totalFours || 0,
+      totalSixes: b.totalSixes || 0,
+      totalCatches: catchesAgg[0]?.totalCatches || 0,
+      playerCount: playerCountAgg.length,
+    };
+  }
 
   const [aggregates] = await PlayerStatsCache.aggregate([
     { $match: { clubId: oid } },
@@ -664,7 +707,6 @@ const getClubDashboardStats = async (clubId) => {
         totalRuns: { $sum: '$totalRuns' },
         totalWickets: { $sum: '$totalWickets' },
         totalBallsBowled: { $sum: '$totalBallsBowled' },
-        totalBallsFaced: { $sum: '$totalBallsFaced' },
         totalFours: { $sum: '$fours' },
         totalSixes: { $sum: '$sixes' },
         totalCatches: { $sum: '$catches' },

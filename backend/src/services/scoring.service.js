@@ -143,7 +143,7 @@ const pauseMatch = async (matchId, { reason, newStartTime }, performedBy) => {
   if (match.status !== 'live') throw ApiError.conflict('Match is not currently live');
 
   const summary = await MatchSummary.findOne({ matchId });
-  if (!summary) throw ApiError.notFound('Match summary not found');
+  if (!summary) throw ApiError.summaryNotFound();
 
   // Snapshot current innings state inside the match document before pausing
   // so that resumeMatch can restore it perfectly.
@@ -196,7 +196,7 @@ const addScore = async (matchId, eventData, performedBy) => {
   if (match.status !== 'live') throw ApiError.conflict('Match is not live');
 
   const summary = await MatchSummary.findOne({ matchId });
-  if (!summary) throw ApiError.notFound('Match summary not found');
+  if (!summary) throw ApiError.summaryNotFound();
 
   const inningKey = getInningKey(summary.currentInning);
   const inning = summary.innings[inningKey];
@@ -304,7 +304,7 @@ const addWicket = async (matchId, eventData, performedBy) => {
   if (match.status !== 'live') throw ApiError.conflict('Match is not live');
 
   const summary = await MatchSummary.findOne({ matchId });
-  if (!summary) throw ApiError.notFound('Match summary not found');
+  if (!summary) throw ApiError.summaryNotFound();
 
   const inningKey = getInningKey(summary.currentInning);
   const inning = summary.innings[inningKey];
@@ -401,7 +401,7 @@ const addExtra = async (matchId, eventData, performedBy) => {
   if (match.status !== 'live') throw ApiError.conflict('Match is not live');
 
   const summary = await MatchSummary.findOne({ matchId });
-  if (!summary) throw ApiError.notFound('Match summary not found');
+  if (!summary) throw ApiError.summaryNotFound();
 
   const inningKey = getInningKey(summary.currentInning);
   const inning = summary.innings[inningKey];
@@ -516,7 +516,7 @@ const saveSuperOver = async (matchId, { overs }, performedBy) => {
   if (match.status !== 'live') throw ApiError.conflict('Match is not live');
 
   const summary = await MatchSummary.findOne({ matchId });
-  if (!summary) throw ApiError.notFound('Match summary not found');
+  if (!summary) throw ApiError.summaryNotFound();
   if (summary.currentInning !== 2) throw ApiError.conflict('Super over can only be initiated after 2nd innings');
 
   const superOverOvers = parseInt(overs, 10);
@@ -626,7 +626,7 @@ const switchInnings = async (matchId, performedBy) => {
   if (!match) throw ApiError.notFound('Match not found');
 
   const summary = await MatchSummary.findOne({ matchId });
-  if (!summary) throw ApiError.notFound('Match summary not found');
+  if (!summary) throw ApiError.summaryNotFound();
   if (summary.currentInning === 2 && !match.superOver) {
     throw ApiError.conflict('Already in second innings');
   }
@@ -669,7 +669,7 @@ const switchInnings = async (matchId, performedBy) => {
  */
 const setActivePlayers = async (matchId, { striker, nonStriker, bowler }) => {
   const summary = await MatchSummary.findOne({ matchId });
-  if (!summary) throw ApiError.notFound('Match summary not found');
+  if (!summary) throw ApiError.summaryNotFound();
 
   if (striker) {
     summary.currentBatsmen.striker = {
@@ -761,7 +761,7 @@ const getMatchSummary = async (matchId) => {
     .populate('currentBatsmen.striker.playerId', 'name avatar')
     .populate('currentBatsmen.nonStriker.playerId', 'name avatar')
     .populate('currentBowler.playerId', 'name avatar');
-  if (!summary) throw ApiError.notFound('Match summary not found');
+  if (!summary) throw ApiError.summaryNotFound();
   return summary;
 };
 
@@ -770,7 +770,7 @@ const getMatchSummary = async (matchId) => {
  */
 const addSubstitute = async (matchId, { substitutedIn, substitutedOut, reason }, performedBy) => {
   const summary = await MatchSummary.findOne({ matchId });
-  if (!summary) throw ApiError.notFound('Match summary not found');
+  if (!summary) throw ApiError.summaryNotFound();
 
   summary.substitutions.push({
     substitutedIn,
@@ -911,7 +911,7 @@ async function recomputeSummary(matchId, match) {
 
   // Reset summary
   let summary = await MatchSummary.findOne({ matchId });
-  if (!summary) throw ApiError.notFound('Match summary not found');
+  if (!summary) throw ApiError.summaryNotFound();
 
   const startingCurrentInning = summary.currentInning || match.currentInning || 1;
   const startingCurrentInningKey = getInningKey(startingCurrentInning);
@@ -1246,7 +1246,7 @@ const getScorecard = async (matchId) => {
     .populate('currentBatsmen.striker.playerId', 'name avatar')
     .populate('currentBatsmen.nonStriker.playerId', 'name avatar')
     .populate('currentBowler.playerId', 'name avatar');
-  if (!summary) throw ApiError.notFound('Match summary not found');
+  if (!summary) throw ApiError.summaryNotFound();
   return summary;
 };
 

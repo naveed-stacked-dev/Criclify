@@ -1,5 +1,5 @@
-import { NavLink, Link, useParams } from "react-router-dom";
-import { Home, Swords, CalendarDays, Users, UserCircle } from "lucide-react";
+import { NavLink, Link, useParams, useNavigate } from "react-router-dom";
+import { Home, Swords, CalendarDays, Users, UserCircle, Plus } from "lucide-react";
 
 const navItems = [
   { path: "", label: "Home", icon: Home, end: true },
@@ -15,6 +15,7 @@ const navItems = [
  */
 export default function ClubNavbar({ club }) {
   const { slug } = useParams();
+  const navigate = useNavigate();
   const basePath = `/clubs/${slug}`;
 
   return (
@@ -40,13 +41,22 @@ export default function ClubNavbar({ club }) {
                 <span className="hidden sm:inline">{label}</span>
               </NavLink>
             ))}
+
+            {/* Register Team CTA */}
+            <button
+              onClick={() => navigate(`${basePath}/teams?register=true`)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-lg whitespace-nowrap transition-all duration-200 bg-white/20 text-white hover:bg-white/30 border border-white/30 ml-1"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Register Team</span>
+            </button>
           </div>
 
           {/* Powered By */}
           <Link to="/" className="hidden bg-[#0f172a] px-3 py-2 rounded-full md:flex items-center gap-2 text-[11px] text-white/70 flex-shrink-0 ml-4 hover:bg-[#1e293b] hover:shadow-md transition-all cursor-pointer">
             <span>Powered by</span>
             <span className="font-bold text-white tracking-tight">
-              Cric<span style={{ color: "#00f3ff" }}>Arena</span>
+              Cric<span style={{ color: "#00f3ff" }}>lify</span>
             </span>
           </Link>
         </div>
