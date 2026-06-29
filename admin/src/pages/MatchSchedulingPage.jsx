@@ -154,7 +154,7 @@ export default function MatchSchedulingPage() {
         tournamentId: selectedTournament,
         clubId: selectedClub,
         venue: form.venue,
-        startTime: form.startTime || undefined,
+        startTime: form.startTime ? new Date(form.startTime).toISOString() : undefined,
         oversPerInning: parseInt(form.overs) || 20,
         status: form.startTime ? "upcoming" : "unscheduled",
       };
@@ -174,7 +174,7 @@ export default function MatchSchedulingPage() {
     try {
       const payload = {};
       if (editForm.venue) payload.venue = editForm.venue;
-      if (editForm.startTime) payload.startTime = editForm.startTime;
+      if (editForm.startTime) payload.startTime = new Date(editForm.startTime).toISOString();
       if (editForm.matchLabel !== undefined) payload.matchLabel = editForm.matchLabel.trim() || null;
       await matchService.update(selectedMatch._id || selectedMatch.id, payload);
       toast.success("Match updated");
@@ -207,7 +207,7 @@ export default function MatchSchedulingPage() {
   const handleScheduleFromDialog = async (matchId, data) => {
     setSubmitting(true);
     try {
-      await matchService.schedule(matchId, { startTime: data.startTime, venue: data.venue, action: data.action, reason: data.reason });
+      await matchService.schedule(matchId, { startTime: data.startTime ? new Date(data.startTime).toISOString() : undefined, venue: data.venue, action: data.action, reason: data.reason });
       toast.success(data.action ? `Match ${data.action}d successfully` : "Match scheduled");
       setShowMatchDetail(false);
       fetchMatchData();

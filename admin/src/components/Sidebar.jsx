@@ -50,15 +50,15 @@ const NAV_ITEMS = [
     roles: ["superAdmin", "clubManager"],
   },
   {
-    path: "/matches",
-    label: "Matches",
-    icon: Calendar,
-    roles: ["superAdmin", "clubManager"],
-  },
-  {
     path: "/match-scheduling",
     label: "Match Scheduling",
     icon: GitBranch,
+    roles: ["superAdmin", "clubManager"],
+  },
+  {
+    path: "/matches",
+    label: "Matches",
+    icon: Calendar,
     roles: ["superAdmin", "clubManager"],
   },
   {
